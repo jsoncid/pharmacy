@@ -98,3 +98,105 @@ Each button type maintains consistent sizing, colors, and hover states for a coh
 Input text sizes standardized to text-sm across all pages. All input fields, select elements, and search inputs now use consistent text sizing for a uniform user interface. This includes form inputs, search fields, and edit form inputs
 
 This rule applies to **all frontend file generations** in this project.
+
+
+
+
+Cursor Rules for CRUD: Always Modal
+1. General Principle
+
+All CRUD actions must open in a modal.
+
+Avoid inline editing or page redirection unless explicitly approved.
+
+2. Cursor Behavior Rules
+Cursor Action	Behavior	Modal Requirement
+Hover over CRUD buttons	Show pointer cursor	Yes
+Click on "Create" button	Opens modal form for creation	Mandatory
+Click on "Read"/"View" button	Opens modal displaying details	Mandatory
+Click on "Edit"/"Update" button	Opens modal pre-filled with record data	Mandatory
+Click on "Delete" button	Opens confirmation modal	Mandatory
+Click outside modal (backdrop)	Closes modal if allowed	Optional
+Keyboard shortcuts	Ctrl + N / Ctrl + E opens modal	Recommended
+3. Modal Design Rules
+
+Consistent layout across all CRUD modals.
+
+Header clearly indicates the action (Create, Edit, View, Delete).
+
+Form validation occurs inside the modal.
+
+Save/Submit buttons should close the modal on success.
+
+Cancel/Close buttons revert without changes.
+
+Modal size should be responsive:
+
+Small forms → small modal
+
+Large forms → medium/full modal
+
+4. UX Enhancements
+
+Always provide feedback messages inside the modal (success, error).
+
+If the modal contains a table/list, consider inline refresh without closing modal (optional).
+
+Ensure focus management: first input field active on open; focus returns to the CRUD button on close.
+
+
+
+
+
+
+
+
+Rules for Using .env Variables in Appwrite CLI / MCP Access
+1. General Principles
+
+Never hardcode IDs, keys, or sensitive data. Always use .env variables.
+.env variables should be clearly named, descriptive, and consistent.
+Variables must match Appwrite resources (Collections, Attributes, Functions) exactly as used in CLI or MCP scripts.
+Always validate .env variables before running CLI scripts or MCP automation.
+
+2. Naming Conventions
+Resource Type	Example .env Variable	Notes
+Project ID	APPWRITE_PROJECT_ID	Required for CLI initialization
+API Key / Secret	APPWRITE_API_KEY	Server-side only; never in public frontend
+Collection ID	APPWRITE_COLLECTION_USERS	Reference collection via variable
+Attribute / Field	APPWRITE_ATTRIBUTE_EMAIL	Reference attributes for queries or updates
+Function ID	APPWRITE_FUNCTION_CREATE_USER	For function execution in CLI/MCP
+
+Rule: Uppercase, underscores, no spaces. Keep consistent across projects.
+
+3. CLI Rules
+Always reference .env variables for Appwrite CLI commands:
+
+
+4. MCP / Automation Rules
+
+When writing scripts to automate MCP tasks (like seeding data, managing collections, or triggering functions):
+
+Use .env variables everywhere for IDs or attribute names.
+
+Do not expose API keys in scripts shared publicly.
+
+Validate variables before execution:
+
+for var in APPWRITE_PROJECT_ID APPWRITE_API_KEY APPWRITE_COLLECTION_USERS APPWRITE_FUNCTION_CREATE_USER; do
+  if [ -z "${!var}" ]; then
+    echo "Error: $var is not set"
+    exit 1
+  fi
+done
+
+
+Use variables consistently in JSON payloads, filters, and CLI commands.
+
+5. Security Rules
+
+.env files must never be committed to git.
+
+Use separate .env files for local, staging, and production.
+
+Rotate API keys regularly and update .env accordingly.

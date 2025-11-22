@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Databases, ID, Query, Functions, ExecutionMethod } from 'appwrite';
-import client from '../lib/appwrite';
-import PageBreadcrumb from "../components/common/PageBreadCrumb";
-import PageMeta from "../components/common/PageMeta";
-import { Table, TableHeader, TableBody, TableRow, TableCell } from "../components/ui/table";
-import Button from "../components/ui/button/Button";
-import InputField from "../components/form/input/InputField";
+import client from '../../lib/appwrite';
+import PageBreadcrumb from "../../components/common/PageBreadCrumb";
+import PageMeta from "../../components/common/PageMeta";
+import { Table, TableHeader, TableBody, TableRow, TableCell } from "../../components/ui/table";
+import Button from "../../components/ui/button/Button";
+import InputField from "../../components/form/input/InputField";
 
 const databases = new Databases(client);
 const functionsAPI = new Functions(client);

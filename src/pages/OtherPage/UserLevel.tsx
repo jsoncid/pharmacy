@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Databases, ID, Query, Teams } from 'appwrite';
-import client from '../lib/appwrite';
-import PageBreadcrumb from "../components/common/PageBreadCrumb";
-import PageMeta from "../components/common/PageMeta";
-import { Table, TableHeader, TableBody, TableRow, TableCell } from "../components/ui/table";
-import Button from "../components/ui/button/Button";
-import InputField from "../components/form/input/InputField";
+import client from '../../lib/appwrite';
+import PageBreadcrumb from "../../components/common/PageBreadCrumb";
+import PageMeta from "../../components/common/PageMeta";
+import { Table, TableHeader, TableBody, TableRow, TableCell } from "../../components/ui/table";
+import Button from "../../components/ui/button/Button";
+import InputField from "../../components/form/input/InputField";
 
 const databases = new Databases(client);
 const teams = new Teams(client);
@@ -394,12 +394,6 @@ export default function UserLevelPage() {
                         isHeader
                         className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
                       >
-                        Permissions
-                      </TableCell>
-                      <TableCell
-                        isHeader
-                        className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                      >
                         Created At
                       </TableCell>
                       <TableCell
@@ -421,33 +415,56 @@ export default function UserLevelPage() {
                           </span>
                         </TableCell>
                         <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                          {assignment.teams_and_roles.length} team{assignment.teams_and_roles.length !== 1 ? 's' : ''}
-                        </TableCell>
-                        <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                          <div className="flex flex-wrap gap-1">
-                            {(() => {
-                              const teamsData = assignment.teams_and_roles;
-                              const allPermissions = new Set<string>();
+                          <div className="flex flex-col gap-1">
+                            {assignment.teams_and_roles.length === 0 ? (
+                              <span className="text-xs text-gray-400 dark:text-gray-500">
+                                No teams
+                              </span>
+                            ) : (
+                              assignment.teams_and_roles.map((encodedTeam) => {
+                                if (typeof encodedTeam === 'string') {
+                                  let teamId = encodedTeam;
+                                  let permissions: string[] = [];
 
-                              if (Array.isArray(teamsData)) {
-                                teamsData.forEach(encodedTeam => {
-                                  if (typeof encodedTeam === 'string' && encodedTeam.includes(':')) {
-                                    const [, permissionsStr] = encodedTeam.split(':');
-                                    const permissions = permissionsStr ? permissionsStr.split(',') : [];
-                                    permissions.forEach(p => allPermissions.add(p));
+                                  if (encodedTeam.includes(':')) {
+                                    const [id, permissionsStr] = encodedTeam.split(':');
+                                    teamId = id;
+                                    permissions = permissionsStr ? permissionsStr.split(',') : [];
+                                  } else {
+                                    // Backward compatibility: old format without permissions
+                                    permissions = ['create', 'read', 'update', 'delete'];
                                   }
-                                });
-                              }
 
-                              return Array.from(allPermissions).map((permission) => (
-                                <span
-                                  key={permission}
-                                  className="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded text-xs dark:bg-blue-900 dark:text-blue-200 capitalize"
-                                >
-                                  {permission}
-                                </span>
-                              ));
-                            })()}
+                                  const team = availableTeams.find((t) => t.$id === teamId);
+                                  const teamName = team?.name || teamId;
+
+                                  return (
+                                    <div
+                                      key={encodedTeam}
+                                      className="flex flex-wrap items-center gap-1 text-xs"
+                                    >
+                                      <span className="font-medium text-gray-700 dark:text-gray-200">
+                                        {teamName}
+                                      </span>
+                                      {permissions.length > 0 && (
+                                        <>
+                                          <span className="text-gray-400 dark:text-gray-500">-</span>
+                                          {permissions.map((permission) => (
+                                            <span
+                                              key={`${encodedTeam}-${permission}`}
+                                              className="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded text-[10px] dark:bg-blue-900 dark:text-blue-200 capitalize"
+                                            >
+                                              {permission}
+                                            </span>
+                                          ))}
+                                        </>
+                                      )}
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              })
+                            )}
                           </div>
                         </TableCell>
                         <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useLocation } from "react-router";
+import { useCallback, useEffect, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router";
 
 // Assume these icons are imported from an icon library
 import {
@@ -7,21 +7,31 @@ import {
   HorizontaLDots,
   PlugInIcon,
   UserCircleIcon,
+  BoxIcon,
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 import SidebarWidget from "./SidebarWidget";
 import { usePermissions } from "../hooks/usePermissions";
 
+type SubItem = {
+  name: string;
+  path?: string;
+  pro?: boolean;
+  new?: boolean;
+  subItems?: SubItem[];
+};
+
 type NavItem = {
   name: string;
   icon: React.ReactNode;
   path?: string;
-  subItems?: { name: string; path: string; pro?: boolean; new?: boolean }[];
+  subItems?: SubItem[];
 };
 
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const location = useLocation();
+  const navigate = useNavigate();
   const { hasTeamId } = usePermissions();
 
   const navItems: NavItem[] = [
@@ -36,9 +46,62 @@ const AppSidebar: React.FC = () => {
       icon: <UserCircleIcon />,
       name: "User Profile",
       path: "/profile",
-    }] : [])
+    }] : []),
 
-    // {
+    {
+      icon: <BoxIcon />,
+      name: "Products",
+      subItems: [
+        { name: "Categories", path: "/products/categories" },
+        {
+          name: "Medical Supply Specifications",
+          subItems: [
+            {
+              name: "Materials", path: "/products/medical_supplies_technical_descriptions/materials",
+            },
+            {
+              name: "Sizes",
+              path: "/products/medical_supplies_technical_descriptions/sizes",
+            },
+            {
+              name: "Capacity & Volumes",
+              path: "/products/medical_supplies_technical_descriptions/capacity_volumes",
+            },
+            {
+              name: "Sterilities",
+              path: "/products/medical_supplies_technical_descriptions/sterilities",
+            },
+            {
+              name: "Usabilities",
+              path: "/products/medical_supplies_technical_descriptions/usabilities",
+            },
+            {
+              name: "Contents",
+              path: "/products/medical_supplies_technical_descriptions/contents",
+            },
+            {
+              name: "Straps",
+              path: "/products/medical_supplies_technical_descriptions/straps",
+            },
+          ],
+        },
+        
+        {
+          name: "Drugs & Medicine Specifications",
+          subItems: [
+            { name: "Dossage & Forms", path: "/products/drug_technical_descriptions/dossage_forms" },
+            { name: "Containers", path: "/products/drug_technical_descriptions/containers" },
+            { name: "ATC Codes", path: "/products/drug_technical_descriptions/atc_codes" },
+            { name: "Anatomicals", path: "/products/drug_technical_descriptions/anatomicals" },
+            { name: "Therapeutics", path: "/products/drug_technical_descriptions/therapeutics" },
+            { name: "Pharmacologicals", path: "/products/drug_technical_descriptions/pharmacologicals" },
+        
+          ],
+        },
+       
+       
+      ],
+    }
     //   icon: <PageIcon />,
     //   name: "My books",
     //   path: "/my-books",
@@ -104,10 +167,7 @@ const AppSidebar: React.FC = () => {
     type: "main" | "others";
     index: number;
   } | null>(null);
-  const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>(
-    {}
-  );
-  const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [openNestedGroup, setOpenNestedGroup] = useState<string | null>(null);
 
   // const isActive = (path: string) => location.pathname === path;
   const isActive = useCallback(
@@ -115,41 +175,39 @@ const AppSidebar: React.FC = () => {
     [location.pathname]
   );
 
+  const hasActiveSubItem = (subItems: SubItem[]): boolean => {
+    return subItems.some((subItem) => {
+      if (subItem.path && isActive(subItem.path)) {
+        return true;
+      }
+      if (subItem.subItems) {
+        return hasActiveSubItem(subItem.subItems);
+      }
+      return false;
+    });
+  };
+
   useEffect(() => {
     let submenuMatched = false;
     ["main", "others"].forEach((menuType) => {
       const items = menuType === "main" ? navItems : othersItems;
       items.forEach((nav, index) => {
-        if (nav.subItems) {
-          nav.subItems.forEach((subItem) => {
-            if (isActive(subItem.path)) {
-              setOpenSubmenu({
-                type: menuType as "main" | "others",
-                index,
-              });
-              submenuMatched = true;
-            }
+        if (nav.subItems && hasActiveSubItem(nav.subItems)) {
+          setOpenSubmenu({
+            type: menuType as "main" | "others",
+            index,
           });
+          submenuMatched = true;
         }
       });
     });
 
     if (!submenuMatched) {
-      setOpenSubmenu(null);
-    }
-  }, [location, isActive]);
-
-  useEffect(() => {
-    if (openSubmenu !== null) {
-      const key = `${openSubmenu.type}-${openSubmenu.index}`;
-      if (subMenuRefs.current[key]) {
-        setSubMenuHeight((prevHeights) => ({
-          ...prevHeights,
-          [key]: subMenuRefs.current[key]?.scrollHeight || 0,
-        }));
+      if (!(location.pathname === '/products' && openSubmenu && openSubmenu.type === "main" && navItems[openSubmenu.index]?.name === "Products")) {
+        setOpenSubmenu(null);
       }
     }
-  }, [openSubmenu]);
+  }, [location, isActive]);
 
   const handleSubmenuToggle = (index: number, menuType: "main" | "others") => {
     setOpenSubmenu((prevOpenSubmenu) => {
@@ -164,13 +222,92 @@ const AppSidebar: React.FC = () => {
     });
   };
 
+  const toggleNestedGroup = (name: string) => {
+    setOpenNestedGroup((prev) => (prev === name ? null : name));
+  };
+
+  const renderSubItems = (subItems: SubItem[], depth: number = 0): React.ReactElement => (
+    <ul className={`mt-2 space-y-1 ${depth === 0 ? 'ml-9' : 'ml-4'}`}>
+      {subItems.map((subItem) => (
+        <li key={subItem.name}>
+          {subItem.subItems ? (
+            <button
+              onClick={() => toggleNestedGroup(subItem.name)}
+              className="menu-dropdown-item menu-dropdown-item-inactive cursor-pointer w-full text-left"
+            >
+              {subItem.name}
+              <ChevronDownIcon
+                className={`ml-auto w-4 h-4 transition-transform ${
+                  openNestedGroup === subItem.name
+                    ? "rotate-180 text-brand-500"
+                    : ""
+                }`}
+              />
+            </button>
+          ) : subItem.path ? (
+            <Link
+              to={subItem.path}
+              className={`menu-dropdown-item ${
+                isActive(subItem.path)
+                  ? "menu-dropdown-item-active"
+                  : "menu-dropdown-item-inactive"
+              }`}
+            >
+              {subItem.name}
+              <span className="flex items-center gap-1 ml-auto">
+                {subItem.new && (
+                  <span className="menu-dropdown-badge menu-dropdown-badge-inactive">
+                    new
+                  </span>
+                )}
+                {subItem.pro && (
+                  <span className="menu-dropdown-badge menu-dropdown-badge-inactive">
+                    pro
+                  </span>
+                )}
+              </span>
+            </Link>
+          ) : (
+            <div className="menu-dropdown-item menu-dropdown-item-inactive">
+              {subItem.name}
+              <span className="flex items-center gap-1 ml-auto">
+                {subItem.new && (
+                  <span className="menu-dropdown-badge menu-dropdown-badge-inactive">
+                    new
+                  </span>
+                )}
+                {subItem.pro && (
+                  <span className="menu-dropdown-badge menu-dropdown-badge-inactive">
+                    pro
+                  </span>
+                )}
+              </span>
+            </div>
+          )}
+          {subItem.subItems && openNestedGroup === subItem.name && (
+            <div className="mt-1">
+              {renderSubItems(subItem.subItems, depth + 1)}
+            </div>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+
   const renderMenuItems = (items: NavItem[], menuType: "main" | "others") => (
     <ul className="flex flex-col gap-4">
       {items.map((nav, index) => (
         <li key={nav.name}>
           {nav.subItems ? (
             <button
-              onClick={() => handleSubmenuToggle(index, menuType)}
+              onClick={() => {
+                if (nav.name === "Products") {
+                  navigate('/products');
+                  setOpenSubmenu({ type: menuType, index });
+                } else {
+                  handleSubmenuToggle(index, menuType);
+                }
+              }}
               className={`menu-item group ${
                 openSubmenu?.type === menuType && openSubmenu?.index === index
                   ? "menu-item-active"
@@ -227,61 +364,14 @@ const AppSidebar: React.FC = () => {
               </Link>
             )
           )}
-          {nav.subItems && (isExpanded || isHovered || isMobileOpen) && (
-            <div
-              ref={(el) => {
-                subMenuRefs.current[`${menuType}-${index}`] = el;
-              }}
-              className="overflow-hidden transition-all duration-300"
-              style={{
-                height:
-                  openSubmenu?.type === menuType && openSubmenu?.index === index
-                    ? `${subMenuHeight[`${menuType}-${index}`]}px`
-                    : "0px",
-              }}
-            >
-              <ul className="mt-2 space-y-1 ml-9">
-                {nav.subItems.map((subItem) => (
-                  <li key={subItem.name}>
-                    <Link
-                      to={subItem.path}
-                      className={`menu-dropdown-item ${
-                        isActive(subItem.path)
-                          ? "menu-dropdown-item-active"
-                          : "menu-dropdown-item-inactive"
-                      }`}
-                    >
-                      {subItem.name}
-                      <span className="flex items-center gap-1 ml-auto">
-                        {subItem.new && (
-                          <span
-                            className={`ml-auto ${
-                              isActive(subItem.path)
-                                ? "menu-dropdown-badge-active"
-                                : "menu-dropdown-badge-inactive"
-                            } menu-dropdown-badge`}
-                          >
-                            new
-                          </span>
-                        )}
-                        {subItem.pro && (
-                          <span
-                            className={`ml-auto ${
-                              isActive(subItem.path)
-                                ? "menu-dropdown-badge-active"
-                                : "menu-dropdown-badge-inactive"
-                            } menu-dropdown-badge`}
-                          >
-                            pro
-                          </span>
-                        )}
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          {nav.subItems &&
+            (isExpanded || isHovered || isMobileOpen) &&
+            openSubmenu?.type === menuType &&
+            openSubmenu?.index === index && (
+              <div className="mt-2">
+                {renderSubItems(nav.subItems, 0)}
+              </div>
+            )}
         </li>
       ))}
     </ul>

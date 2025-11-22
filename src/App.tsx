@@ -2,11 +2,11 @@ import { BrowserRouter as Router, Routes, Route } from "react-router";
 import SignIn from "./pages/AuthPages/SignIn";
 // import SignUp from "./pages/AuthPages/SignUp";
 import NotFound from "./pages/OtherPage/NotFound";
-import UserProfiles from "./pages/UserProfiles";
-import Teams from "./pages/Teams";
-import Users from "./pages/Users";
-import UserLevel from "./pages/UserLevel";
-import UserLevelAssignment from "./pages/UserLevelAssignment";
+import UserProfiles from "./pages/OtherPage/UserProfiles";
+import Teams from "./pages/OtherPage/Teams";
+import Users from "./pages/OtherPage/Users";
+import UserLevel from "./pages/OtherPage/UserLevel";
+import UserLevelAssignment from "./pages/OtherPage/UserLevelAssignment";
 // import MyBooks from "./pages/MyBooks";
 // import Videos from "./pages/UiElements/Videos";
 // import Images from "./pages/UiElements/Images";
@@ -24,6 +24,21 @@ import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import { ProtectedRoute } from "./components/common/ProtectedRoute";
 import Home from "./pages/Dashboard/Home";
+import Products from "./pages/Products/Products";
+import AtcCodes from "./pages/Products/DrugTechnicalDescriptions/AtcCodes";
+import Anatomicals from "./pages/Products/DrugTechnicalDescriptions/Anatomicals";
+import Therapeutics from "./pages/Products/DrugTechnicalDescriptions/Therapeutics";
+import Pharmacologicals from "./pages/Products/DrugTechnicalDescriptions/Pharmacologicals";
+import Categories from "./pages/Products/Categories";
+import DosageForms from "./pages/Products/DrugTechnicalDescriptions/DosageForms";
+import Containers from "./pages/Products/DrugTechnicalDescriptions/Containers";
+import Materials from "./pages/Products/MedicalSuppliesTechnicalDescriptions/Materials";
+import Sizes from "./pages/Products/MedicalSuppliesTechnicalDescriptions/Sizes";
+import CapacityVolumes from "./pages/Products/MedicalSuppliesTechnicalDescriptions/CapacityVolumes";
+import Sterilities from "./pages/Products/MedicalSuppliesTechnicalDescriptions/Sterilities";
+import Usabilities from "./pages/Products/MedicalSuppliesTechnicalDescriptions/Usabilities";
+import Contents from "./pages/Products/MedicalSuppliesTechnicalDescriptions/Contents";
+import Straps from "./pages/Products/MedicalSuppliesTechnicalDescriptions/Straps";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { useEffect } from "react";
 import { Databases, Query, Functions } from "appwrite";
@@ -135,6 +150,42 @@ function AppContent() {
         {/* Dashboard Layout */}
         <Route element={<AppLayout />}>
           <Route index path="/" element={<Home />} />
+          <Route path="/products" element={<Products />} />
+          <Route path="/products/categories" element={<Categories />} />
+          <Route
+            path="/products/medical_supplies_technical_descriptions/materials"
+            element={<Materials />}
+          />
+          <Route
+            path="/products/medical_supplies_technical_descriptions/sizes"
+            element={<Sizes />}
+          />
+          <Route
+            path="/products/medical_supplies_technical_descriptions/capacity_volumes"
+            element={<CapacityVolumes />}
+          />
+          <Route
+            path="/products/medical_supplies_technical_descriptions/sterilities"
+            element={<Sterilities />}
+          />
+          <Route
+            path="/products/medical_supplies_technical_descriptions/usabilities"
+            element={<Usabilities />}
+          />
+          <Route
+            path="/products/medical_supplies_technical_descriptions/contents"
+            element={<Contents />}
+          />
+          <Route
+            path="/products/medical_supplies_technical_descriptions/straps"
+            element={<Straps />}
+          />
+          <Route path="/products/drug_technical_descriptions/atc_codes" element={<AtcCodes />} />
+          <Route path="/products/drug_technical_descriptions/anatomicals" element={<Anatomicals />} />
+          <Route path="/products/drug_technical_descriptions/therapeutics" element={<Therapeutics />} />
+          <Route path="/products/drug_technical_descriptions/pharmacologicals" element={<Pharmacologicals />} />
+          <Route path="/products/drug_technical_descriptions/dossage_forms" element={<DosageForms />} />
+          <Route path="/products/drug_technical_descriptions/containers" element={<Containers />} />
 
           {/* Others Page */}
           <Route path="/profile" element={<ProtectedRoute requiredTeamId="users"><UserProfiles /></ProtectedRoute>} />
