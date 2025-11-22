@@ -3,11 +3,14 @@ import { Databases, ID, Query, Functions, ExecutionMethod } from 'appwrite';
 import client from '../lib/appwrite';
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import PageMeta from "../components/common/PageMeta";
+import { Table, TableHeader, TableBody, TableRow, TableCell } from "../components/ui/table";
+import Button from "../components/ui/button/Button";
+import InputField from "../components/form/input/InputField";
 
 const databases = new Databases(client);
 const functionsAPI = new Functions(client);
-const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID || '69212b52002578ecb071';
-const COLLECTION_ID = '69214284002bd9a24756'; // User Level Assignments collection
+const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
+const COLLECTION_ID = import.meta.env.VITE_APPWRITE_COLLECTION_USER_ASSIGNMENT; // User Level Assignments collection
 
 interface UserLevelAssignment {
   $id: string;
@@ -44,6 +47,8 @@ export default function UserLevelAssignmentPage() {
   const [selectedUserId, setSelectedUserId] = useState('');
   const [selectedLevelId, setSelectedLevelId] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     fetchAssignments();
@@ -88,7 +93,7 @@ export default function UserLevelAssignmentPage() {
   const fetchUsers = async () => {
     try {
       setUsersLoading(true);
-      const response = await functionsAPI.createExecution('692138640030e8b19936', '', false, '/users', ExecutionMethod.GET, {});
+      const response = await functionsAPI.createExecution(import.meta.env.VITE_APPWRITE_FUNCTION_USERS_ID, '', false, '/users', ExecutionMethod.GET, {});
       const result = JSON.parse(response.responseBody);
       if (result.success) {
         setAvailableUsers(result.data || []);
@@ -135,6 +140,17 @@ export default function UserLevelAssignmentPage() {
     });
   };
 
+  // Get paginated assignments
+  const getPaginatedAssignments = () => {
+    const filtered = getFilteredAssignments();
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filtered.slice(startIndex, endIndex);
+  };
+
+  // Calculate total pages
+  const totalPages = Math.ceil(getFilteredAssignments().length / itemsPerPage);
+
   const validateAssignmentUpdate = (userId: string, currentAssignmentId: string): string | null => {
     // Check if another user already has this assignment (excluding current assignment)
     const existingAssignment = assignments.find(
@@ -151,7 +167,7 @@ export default function UserLevelAssignmentPage() {
   const fetchLevels = async () => {
     try {
       setLevelsLoading(true);
-      const response = await databases.listDocuments(DATABASE_ID, '6921426f00185058212c', [
+      const response = await databases.listDocuments(DATABASE_ID, import.meta.env.VITE_APPWRITE_COLLECTION_USER_LEVEL_TO_TEAMS, [
         Query.equal('status', true),
         Query.orderDesc('$createdAt')
       ]);
@@ -367,13 +383,12 @@ export default function UserLevelAssignmentPage() {
                 {isEditing ? 'Update' : 'Create'}
               </button>
               {isEditing && (
-                <button
-                  type="button"
+                <Button
+                  variant="outline"
                   onClick={resetForm}
-                  className="rounded bg-gray-600 px-3 py-1 text-white hover:bg-gray-700"
                 >
                   Cancel
-                </button>
+                </Button>
               )}
             </div>
           </form>
@@ -384,12 +399,11 @@ export default function UserLevelAssignmentPage() {
           <div className="flex items-center justify-between mb-4">
             <h4 className="font-medium text-gray-800 dark:text-white">Existing Assignments</h4>
             <div className="flex items-center gap-2">
-              <input
+              <InputField
                 type="text"
                 placeholder="Search assignments..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm"
               />
             </div>
           </div>
@@ -400,53 +414,116 @@ export default function UserLevelAssignmentPage() {
               {assignments.length === 0 ? 'No assignments found.' : 'No assignments match your search.'}
             </p>
           ) : (
-            <div className="space-y-3">
-              {getFilteredAssignments().map((assignment) => {
-                const user = availableUsers.find(u => u.$id === assignment.user_id);
-                // Use stored level_description first, then fallback to lookup
-                const levelDescription = assignment.level_description ||
-                  (availableLevels.find(l => l.$id === assignment.userLevelToTeams)?.level_description);
-
-                return (
-                  <div
-                    key={assignment.$id}
-                    className="rounded-lg border border-gray-200 bg-white p-3 shadow-md dark:border-gray-700 dark:bg-gray-800"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-4 mb-2">
-                          <div>
-                            <h5 className="font-medium text-sm text-gray-800 dark:text-white">
-                              {user ? user.name : `User ${assignment.user_id}`}
-                            </h5>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              {user?.email}
-                            </p>
-                          </div>
-                          <div className="text-sm">
-                            <span className="text-gray-600 dark:text-gray-400">Assigned Level: </span>
-                            <span className="font-medium text-gray-800 dark:text-white">
-                              {levelsLoading ? 'Loading...' : levelDescription || 'Level not found'}
-                            </span>
-                          </div>
-                        </div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          Created: {new Date(assignment.$createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => startEditing(assignment)}
-                          className="rounded bg-blue-600 px-3 py-1 text-white hover:bg-blue-700"
+            <>
+              <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
+                <div className="max-w-full overflow-x-auto">
+                  <Table>
+                    {/* Table Header */}
+                    <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
+                      <TableRow>
+                        <TableCell
+                          isHeader
+                          className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
                         >
-                          Edit
-                        </button>
-                      </div>
-                    </div>
+                          User
+                        </TableCell>
+                        <TableCell
+                          isHeader
+                          className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                        >
+                          User Level
+                        </TableCell>
+                        <TableCell
+                          isHeader
+                          className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                        >
+                          Created At
+                        </TableCell>
+                        <TableCell
+                          isHeader
+                          className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                        >
+                          Actions
+                        </TableCell>
+                      </TableRow>
+                    </TableHeader>
+
+                    {/* Table Body */}
+                    <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
+                      {getPaginatedAssignments().map((assignment) => {
+                        const user = availableUsers.find(u => u.$id === assignment.user_id);
+                        // Use stored level_description first, then fallback to lookup
+                        const levelDescription = assignment.level_description ||
+                          (availableLevels.find(l => l.$id === assignment.userLevelToTeams)?.level_description);
+
+                        return (
+                          <TableRow key={assignment.$id}>
+                            <TableCell className="px-5 py-4 text-start">
+                              <div>
+                                <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
+                                  {user ? user.name : `User ${assignment.user_id}`}
+                                </span>
+                                <span className="block text-gray-500 text-theme-xs dark:text-gray-400">
+                                  {user?.email}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
+                              <span className="font-medium text-gray-800 dark:text-white/90">
+                                {levelsLoading ? 'Loading...' : levelDescription || 'Level not found'}
+                              </span>
+                            </TableCell>
+                            <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
+                              {new Date(assignment.$createdAt).toLocaleDateString()}
+                            </TableCell>
+                            <TableCell className="px-4 py-3 text-start">
+                              <Button
+                                size="sm"
+                                variant="primary"
+                                className="bg-blue-600 hover:bg-blue-700"
+                                onClick={() => startEditing(assignment)}
+                              >
+                                Edit
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4">
+                  <div className="text-sm text-gray-500 dark:text-gray-400">
+                    Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, getFilteredAssignments().length)} of {getFilteredAssignments().length} assignments
                   </div>
-                );
-              })}
-            </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                    >
+                      Previous
+                    </Button>
+                    <span className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

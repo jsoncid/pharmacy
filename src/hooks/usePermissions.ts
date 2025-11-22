@@ -4,9 +4,9 @@ import client from '../lib/appwrite';
 import { useAuth } from '../context/AuthContext';
 
 const databases = new Databases(client);
-const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID || '69212b52002578ecb071';
-const USER_LEVEL_ASSIGNMENTS_COLLECTION_ID = '69214284002bd9a24756'; // User Level Assignments collection
-const USER_LEVEL_TO_TEAMS_COLLECTION_ID = '6921426f00185058212c';
+const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
+const USER_LEVEL_ASSIGNMENTS_COLLECTION_ID = import.meta.env.VITE_APPWRITE_COLLECTION_USER_ASSIGNMENT; // User Level Assignments collection
+const USER_LEVEL_TO_TEAMS_COLLECTION_ID = import.meta.env.VITE_APPWRITE_COLLECTION_USER_LEVEL_TO_TEAMS;
 
 export function usePermissions() {
   const { user } = useAuth();

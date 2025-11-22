@@ -31,10 +31,9 @@ import client from "./lib/appwrite";
 
 const databases = new Databases(client);
 const functionsAPI = new Functions(client);
-const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID || '69212b52002578ecb071';
-const COLLECTION_ID = '69214284002bd9a24756'; // User Level Assignments collection
-const FUNCTION_ID = '692138f800290fce032f'; // appwrite-function-team-membership
-
+const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
+const COLLECTION_ID = import.meta.env.VITE_APPWRITE_COLLECTION_USER_ASSIGNMENT; // User Level Assignments collection
+const FUNCTION_ID = import.meta.env.VITE_APPWRITE_FUNCTION_TEAM_MEMBERSHIP; // appwrite-function-team-membership
 
 function AppContent() {
   const { user } = useAuth();
@@ -75,7 +74,7 @@ function AppContent() {
           
           const teamsAndRoles = await databases.listDocuments(
             DATABASE_ID,
-            '6921426f00185058212c',
+            import.meta.env.VITE_APPWRITE_COLLECTION_USER_LEVEL_TO_TEAMS,
             [Query.equal('$id', userLevelToTeamsId)]
           );
           
@@ -108,7 +107,7 @@ function AppContent() {
             // console.log(`Creating membership for team ${teamId} with roles:`, roles);
             
             // Call the function to create membership
-            const result = await functionsAPI.createExecution(
+            await functionsAPI.createExecution(
               FUNCTION_ID,
               JSON.stringify({
                 teamId: teamId,
@@ -121,7 +120,6 @@ function AppContent() {
               }),
               false // async
             );
-            // console.log(`Membership creation initiated for team ${teamId}:`, result);
           }
         }
       }

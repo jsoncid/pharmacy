@@ -3,6 +3,9 @@ import { Functions, ExecutionMethod, ID } from "appwrite";
 import client from "../lib/appwrite";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import PageMeta from "../components/common/PageMeta";
+import { Table, TableHeader, TableBody, TableRow, TableCell } from "../components/ui/table";
+import Button from "../components/ui/button/Button";
+import InputField from "../components/form/input/InputField";
 
 const functionsAPI = new Functions(client);
 
@@ -26,6 +29,8 @@ export default function UsersPage() {
   const [editUser, setEditUser] = useState({ name: '', email: '', password: '' });
   const [newUser, setNewUser] = useState({ name: '', email: '', password: '' });
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     fetchUsers();
@@ -103,6 +108,17 @@ export default function UsersPage() {
     });
   };
 
+  // Get paginated users
+  const getPaginatedUsers = () => {
+    const filtered = getFilteredUsers();
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filtered.slice(startIndex, endIndex);
+  };
+
+  // Calculate total pages
+  const totalPages = Math.ceil(getFilteredUsers().length / itemsPerPage);
+
   return (
     <>
       <PageMeta
@@ -116,34 +132,33 @@ export default function UsersPage() {
         <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4 shadow-md dark:border-gray-700 dark:bg-gray-800/50">
             <h4 className="mb-3 text-base font-medium">Create User</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <input
+              <InputField
                 type="text"
                 placeholder="Name"
                 value={newUser.name}
                 onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-white text-sm"
               />
-              <input
+              <InputField
                 type="email"
                 placeholder="Email"
                 value={newUser.email}
                 onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-white text-sm"
               />
-              <input
+              <InputField
                 type="password"
                 placeholder="Password (min 8 chars)"
                 value={newUser.password}
                 onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-white text-sm"
               />
             </div>
-            <button
+            <Button
+              size="sm"
+              variant="primary"
+              className="bg-green-600 hover:bg-green-700 px-5 py-3.5"
               onClick={createUser}
-              className="rounded bg-green-600 px-4 py-2 text-white hover:bg-green-700 focus:outline-none"
             >
               Create User
-            </button>
+            </Button>
       </div>
         {/* Users List */}
         <div>
@@ -155,83 +170,158 @@ export default function UsersPage() {
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <input
+              <InputField
                 type="text"
                 placeholder="Search users..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-white text-sm"
               />
             </div>
           </div>
           {loading ? (
             <p>Loading...</p>
+          ) : getFilteredUsers().length === 0 ? (
+            <p className="text-gray-500">
+              {usersList.length === 0 ? 'No users found.' : 'No users match your search.'}
+            </p>
           ) : (
-            <div className="space-y-4">
-              {getFilteredUsers().map((user) => (
-                <div key={user.$id} className="rounded-lg border border-gray-200 p-3 shadow-md dark:border-gray-700">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      {editingUser === user.$id ? (
-                        <div className="space-y-2">
-                          <input
-                            type="text"
-                            value={editUser.name}
-                            onChange={(e) => setEditUser({ ...editUser, name: e.target.value })}
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-white text-sm"
-                          />
-                          <input
-                            type="email"
-                            value={editUser.email}
-                            onChange={(e) => setEditUser({ ...editUser, email: e.target.value })}
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-white text-sm"
-                          />
-                          <input
-                            type="password"
-                            placeholder="New Password (leave empty to keep current)"
-                            value={editUser.password}
-                            onChange={(e) => setEditUser({ ...editUser, password: e.target.value })}
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-white text-sm"
-                          />
-                          <div className="space-x-2">
-                            <button
-                              onClick={updateUser}
-                              className="rounded bg-green-600 px-3 py-1 text-white hover:bg-green-700"
-                            >
-                              Save
-                            </button>
-                            <button
-                              onClick={() => setEditingUser(null)}
-                              className="rounded bg-gray-600 px-3 py-1 text-white hover:bg-gray-700"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div>
-                          <h5 className="font-medium text-sm">{user.name}</h5>
-                          <p className="text-xs text-gray-500">{user.email}</p>
-                        </div>
-                      )}
-                    </div>
-                    <div className="space-x-2">
-                      <button
-                        onClick={() => startEdit(user)}
-                        className="rounded bg-blue-600 px-3 py-1 text-white hover:bg-blue-700"
-                      >
-                        Edit
-                      </button>
-                    </div>
+            <>
+              <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
+                <div className="max-w-full overflow-x-auto">
+                  <Table>
+                    {/* Table Header */}
+                    <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
+                      <TableRow>
+                        <TableCell
+                          isHeader
+                          className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                        >
+                          Name
+                        </TableCell>
+                        <TableCell
+                          isHeader
+                          className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                        >
+                          Email
+                        </TableCell>
+                        <TableCell
+                          isHeader
+                          className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                        >
+                          Created At
+                        </TableCell>
+                        <TableCell
+                          isHeader
+                          className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                        >
+                          Actions
+                        </TableCell>
+                      </TableRow>
+                    </TableHeader>
+
+                    {/* Table Body */}
+                    <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
+                      {getPaginatedUsers().map((user) => (
+                        <TableRow key={user.$id}>
+                          <TableCell className="px-5 py-4 text-start">
+                            {editingUser === user.$id ? (
+                              <input
+                                type="text"
+                                value={editUser.name}
+                                onChange={(e) => setEditUser({ ...editUser, name: e.target.value })}
+                                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-white text-sm"
+                              />
+                            ) : (
+                              <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
+                                {user.name}
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
+                            {editingUser === user.$id ? (
+                              <input
+                                type="email"
+                                value={editUser.email}
+                                onChange={(e) => setEditUser({ ...editUser, email: e.target.value })}
+                                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-white text-sm"
+                              />
+                            ) : (
+                              <span className="text-gray-500 text-theme-sm dark:text-gray-400">
+                                {user.email}
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
+                            {new Date(user.$createdAt).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell className="px-4 py-3 text-start">
+                            {editingUser === user.$id ? (
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="primary"
+                                  className="bg-green-600 hover:bg-green-700"
+                                  onClick={updateUser}
+                                >
+                                  Save
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="bg-gray-600 hover:bg-gray-700 text-white border-gray-600"
+                                  onClick={() => setEditingUser(null)}
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="primary"
+                                className="bg-blue-600 hover:bg-blue-700"
+                                onClick={() => startEdit(user)}
+                              >
+                                Edit
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4">
+                  <div className="text-sm text-gray-500 dark:text-gray-400">
+                    Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, getFilteredUsers().length)} of {getFilteredUsers().length} users
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                    >
+                      Previous
+                    </Button>
+                    <span className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                    >
+                      Next
+                    </Button>
                   </div>
                 </div>
-              ))}
-              {getFilteredUsers().length === 0 && (
-                <p className="text-gray-500">
-                  {usersList.length === 0 ? 'No users found.' : 'No users match your search.'}
-                </p>
               )}
-            </div>
+            </>
           )}
         </div>
       </div>

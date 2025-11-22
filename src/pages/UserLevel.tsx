@@ -3,11 +3,14 @@ import { Databases, ID, Query, Teams } from 'appwrite';
 import client from '../lib/appwrite';
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import PageMeta from "../components/common/PageMeta";
+import { Table, TableHeader, TableBody, TableRow, TableCell } from "../components/ui/table";
+import Button from "../components/ui/button/Button";
+import InputField from "../components/form/input/InputField";
 
 const databases = new Databases(client);
 const teams = new Teams(client);
-const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID || '69212b52002578ecb071';
-const COLLECTION_ID = '6921426f00185058212c';
+const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
+const COLLECTION_ID = import.meta.env.VITE_APPWRITE_COLLECTION_USER_LEVEL_TO_TEAMS;
 
 interface UserLevelAssignment {
   $id: string;
@@ -259,12 +262,10 @@ export default function UserLevelPage() {
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Level Description
               </label>
-              <input
+              <InputField
                 type="text"
                 value={levelDescription}
                 onChange={(e) => setLevelDescription(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm"
-                required
               />
             </div>
 
@@ -330,20 +331,22 @@ export default function UserLevelPage() {
             </div>
 
             <div className="flex gap-2">
-              <button
+              <Button
+                size="sm"
+                variant="primary"
+                className="bg-green-600 hover:bg-green-700"
                 type="submit"
-                className="rounded bg-green-600 px-4 py-2 text-white hover:bg-green-700 focus:outline-none"
               >
                 {isEditing ? 'Update' : 'Create'}
-              </button>
+              </Button>
               {isEditing && (
-                <button
-                  type="button"
+                <Button
+                  size="sm"
+                  variant="outline"
                   onClick={resetForm}
-                  className="rounded bg-gray-600 px-3 py-1 text-white hover:bg-gray-700"
                 >
                   Cancel
-                </button>
+                </Button>
               )}
             </div>
           </form>
@@ -354,12 +357,11 @@ export default function UserLevelPage() {
           <div className="flex items-center justify-between mb-4">
             <h4 className="font-medium text-gray-800 dark:text-white">Existing User Levels</h4>
             <div className="flex items-center gap-2">
-              <input
+              <InputField
                 type="text"
                 placeholder="Search levels and teams..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm"
               />
             </div>
           </div>
@@ -370,80 +372,101 @@ export default function UserLevelPage() {
               {assignments.length === 0 ? 'No assignments found.' : 'No assignments match your search.'}
             </p>
           ) : (
-            <div className="space-y-3">
-              {getFilteredAssignments().map((assignment) => (
-                <div
-                  key={assignment.$id}
-                  className="rounded-lg border border-gray-200 bg-white p-3 shadow-md dark:border-gray-700 dark:bg-gray-800"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h5 className="font-medium text-sm text-gray-800 dark:text-white">
-                        {assignment.level_description}
-                      </h5>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {(() => {
-                          const teamsData = assignment.teams_and_roles;
+            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
+              <div className="max-w-full overflow-x-auto">
+                <Table>
+                  {/* Table Header */}
+                  <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
+                    <TableRow>
+                      <TableCell
+                        isHeader
+                        className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                      >
+                        Level Description
+                      </TableCell>
+                      <TableCell
+                        isHeader
+                        className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                      >
+                        Teams Assigned
+                      </TableCell>
+                      <TableCell
+                        isHeader
+                        className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                      >
+                        Permissions
+                      </TableCell>
+                      <TableCell
+                        isHeader
+                        className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                      >
+                        Created At
+                      </TableCell>
+                      <TableCell
+                        isHeader
+                        className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                      >
+                        Actions
+                      </TableCell>
+                    </TableRow>
+                  </TableHeader>
 
-                          if (Array.isArray(teamsData)) {
-                            return teamsData.map(encodedTeam => {
-                              let teamId: string;
-                              let permissions: string[];
+                  {/* Table Body */}
+                  <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
+                    {getFilteredAssignments().map((assignment) => (
+                      <TableRow key={assignment.$id}>
+                        <TableCell className="px-5 py-4 text-start">
+                          <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
+                            {assignment.level_description}
+                          </span>
+                        </TableCell>
+                        <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
+                          {assignment.teams_and_roles.length} team{assignment.teams_and_roles.length !== 1 ? 's' : ''}
+                        </TableCell>
+                        <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
+                          <div className="flex flex-wrap gap-1">
+                            {(() => {
+                              const teamsData = assignment.teams_and_roles;
+                              const allPermissions = new Set<string>();
 
-                              if (typeof encodedTeam === 'string') {
-                                // Check if it's encoded with permissions (contains ':')
-                                if (encodedTeam.includes(':')) {
-                                  const [tid, permissionsStr] = encodedTeam.split(':');
-                                  teamId = tid;
-                                  permissions = permissionsStr ? permissionsStr.split(',') : [];
-                                } else {
-                                  // Old format: just team ID
-                                  teamId = encodedTeam;
-                                  permissions = ['create', 'read', 'update', 'delete']; // Default permissions
-                                }
-                              } else {
-                                return null;
+                              if (Array.isArray(teamsData)) {
+                                teamsData.forEach(encodedTeam => {
+                                  if (typeof encodedTeam === 'string' && encodedTeam.includes(':')) {
+                                    const [, permissionsStr] = encodedTeam.split(':');
+                                    const permissions = permissionsStr ? permissionsStr.split(',') : [];
+                                    permissions.forEach(p => allPermissions.add(p));
+                                  }
+                                });
                               }
 
-                              const team = availableTeams.find(t => t.$id === teamId);
-                              return (
-                                <div key={teamId} className="bg-gray-100 rounded-lg p-2 text-xs dark:bg-gray-700">
-                                  <div className="font-medium text-sm text-gray-800 dark:text-gray-200">
-                                    {team ? team.name : teamId}
-                                  </div>
-                                  <div className="flex flex-wrap gap-1 mt-1">
-                                    {permissions.map((permission) => (
-                                      <span
-                                        key={permission}
-                                        className="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded text-xs dark:bg-blue-900 dark:text-blue-200"
-                                      >
-                                        {permission}
-                                      </span>
-                                    ))}
-                                  </div>
-                                </div>
-                              );
-                            });
-                          }
-
-                          return null;
-                        })()}
-                      </div>
-                      <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                        Created: {new Date(assignment.$createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => startEditing(assignment)}
-                        className="rounded bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-700"
-                      >
-                        Edit
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                              return Array.from(allPermissions).map((permission) => (
+                                <span
+                                  key={permission}
+                                  className="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded text-xs dark:bg-blue-900 dark:text-blue-200 capitalize"
+                                >
+                                  {permission}
+                                </span>
+                              ));
+                            })()}
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
+                          {new Date(assignment.$createdAt).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell className="px-4 py-3 text-start">
+                          <Button
+                            size="sm"
+                            variant="primary"
+                            onClick={() => startEditing(assignment)}
+                          >
+                            Edit
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           )}
         </div>
