@@ -302,8 +302,16 @@ const AppSidebar: React.FC = () => {
             <button
               onClick={() => {
                 if (nav.name === "Products") {
-                  navigate('/products');
-                  setOpenSubmenu({ type: menuType, index });
+                  const isCurrentlyOpen =
+                    openSubmenu?.type === menuType &&
+                    openSubmenu?.index === index;
+
+                  if (isCurrentlyOpen) {
+                    handleSubmenuToggle(index, menuType);
+                  } else {
+                    navigate("/products");
+                    handleSubmenuToggle(index, menuType);
+                  }
                 } else {
                   handleSubmenuToggle(index, menuType);
                 }
