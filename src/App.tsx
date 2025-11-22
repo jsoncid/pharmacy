@@ -31,9 +31,9 @@ import client from "./lib/appwrite";
 
 const databases = new Databases(client);
 const functionsAPI = new Functions(client);
-const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID || '690dcbb000080ea766f3';
-const COLLECTION_ID = '690dd880003cb0613960'; // User Level Assignments collection
-const FUNCTION_ID = '690eadfd000c3f390241'; // appwrite-function-team-membership
+const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID || '69212b52002578ecb071';
+const COLLECTION_ID = '69214284002bd9a24756'; // User Level Assignments collection
+const FUNCTION_ID = '692138f800290fce032f'; // appwrite-function-team-membership
 
 
 function AppContent() {
@@ -67,9 +67,15 @@ function AppContent() {
         for (const assignment of assignments.documents) {
           const userLevelToTeamsId = assignment.userLevelToTeams;
           
+          // Skip if userLevelToTeamsId is empty or undefined
+          if (!userLevelToTeamsId) {
+            console.warn('Skipping assignment with empty userLevelToTeams field:', assignment.$id);
+            continue;
+          }
+          
           const teamsAndRoles = await databases.listDocuments(
             DATABASE_ID,
-            'user_level_to_teams',
+            '6921426f00185058212c',
             [Query.equal('$id', userLevelToTeamsId)]
           );
           

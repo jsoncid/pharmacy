@@ -1,8 +1,8 @@
 {
-    "projectId": "69098cda00020d2e7560",
+    "projectId": "69212b440006d5ad3236",
     "functions": [
         {
-            "$id": "690c8db4001efc20b799",
+            "$id": "692138640030e8b19936",
             "name": "appwrite-function-users",
             "runtime": "node-20.0",
             "specification": "s-8vcpu-8gb",
@@ -27,7 +27,7 @@
             "path": "functions/appwrite-function-users"
         },
         {
-            "$id": "690eadfd000c3f390241",
+            "$id": "692138f800290fce032f",
             "name": "appwrite-function-team-membership",
             "runtime": "node-20.0",
             "specification": "s-8vcpu-8gb",

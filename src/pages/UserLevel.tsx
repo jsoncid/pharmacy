@@ -6,8 +6,8 @@ import PageMeta from "../components/common/PageMeta";
 
 const databases = new Databases(client);
 const teams = new Teams(client);
-const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID || '690dcbb000080ea766f3';
-const COLLECTION_ID = 'user_level_to_teams';
+const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID || '69212b52002578ecb071';
+const COLLECTION_ID = '6921426f00185058212c';
 
 interface UserLevelAssignment {
   $id: string;

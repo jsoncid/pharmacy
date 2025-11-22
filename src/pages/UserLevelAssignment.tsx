@@ -6,8 +6,8 @@ import PageMeta from "../components/common/PageMeta";
 
 const databases = new Databases(client);
 const functionsAPI = new Functions(client);
-const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID || '690dcbb000080ea766f3';
-const COLLECTION_ID = '690dd880003cb0613960'; // User Level Assignments collection
+const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID || '69212b52002578ecb071';
+const COLLECTION_ID = '69214284002bd9a24756'; // User Level Assignments collection
 
 interface UserLevelAssignment {
   $id: string;
@@ -88,7 +88,7 @@ export default function UserLevelAssignmentPage() {
   const fetchUsers = async () => {
     try {
       setUsersLoading(true);
-      const response = await functionsAPI.createExecution('690c8db4001efc20b799', '', false, '/users', ExecutionMethod.GET, {});
+      const response = await functionsAPI.createExecution('692138640030e8b19936', '', false, '/users', ExecutionMethod.GET, {});
       const result = JSON.parse(response.responseBody);
       if (result.success) {
         setAvailableUsers(result.data || []);
@@ -151,7 +151,7 @@ export default function UserLevelAssignmentPage() {
   const fetchLevels = async () => {
     try {
       setLevelsLoading(true);
-      const response = await databases.listDocuments(DATABASE_ID, 'user_level_to_teams', [
+      const response = await databases.listDocuments(DATABASE_ID, '6921426f00185058212c', [
         Query.equal('status', true),
         Query.orderDesc('$createdAt')
       ]);
