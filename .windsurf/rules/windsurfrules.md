@@ -200,3 +200,25 @@ Use variables consistently in JSON payloads, filters, and CLI commands.
 Use separate .env files for local, staging, and production.
 
 Rotate API keys regularly and update .env accordingly.
+
+
+
+
+
+
+
+
+
+
+
+
+Windsurf Rule: Multi-table Save with Transactions
+
+Always create a transaction when saving multiple tables/instances.
+Loop through your data and create each document with the transaction object.
+Commit at the end to apply all changes.
+If any save fails, the transaction rolls back automatically.
+Permissions can be customized per document if needed.
+
+
+

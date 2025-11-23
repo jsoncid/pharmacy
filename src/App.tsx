@@ -25,6 +25,10 @@ import { ScrollToTop } from "./components/common/ScrollToTop";
 import { ProtectedRoute } from "./components/common/ProtectedRoute";
 import Home from "./pages/Dashboard/Home";
 import Products from "./pages/Products/Products";
+import Delivery from "./pages/Deliveries/Deliveries";
+import Units from "./pages/Deliveries/Units";
+import Inventories from "./pages/Inventory/Inventories";
+import InboundStocks from "./pages/Inventory/InboundStocks";
 import AtcCodes from "./pages/Products/DrugTechnicalDescriptions/AtcCodes";
 import Anatomicals from "./pages/Products/DrugTechnicalDescriptions/Anatomicals";
 import Therapeutics from "./pages/Products/DrugTechnicalDescriptions/Therapeutics";
@@ -151,6 +155,10 @@ function AppContent() {
         <Route element={<AppLayout />}>
           <Route index path="/" element={<Home />} />
           <Route path="/products" element={<Products />} />
+          <Route path="/inventories" element={<Inventories />} />
+          <Route path="/inventories/inbound-stocks" element={<InboundStocks />} />
+          <Route path="/deliveries" element={<Delivery />} />
+          <Route path="/deliveries/units" element={<Units />} />
           <Route path="/products/categories" element={<Categories />} />
           <Route
             path="/products/medical_supplies_technical_descriptions/materials"

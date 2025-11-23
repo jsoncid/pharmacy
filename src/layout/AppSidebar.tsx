@@ -85,7 +85,6 @@ const AppSidebar: React.FC = () => {
             },
           ],
         },
-        
         {
           name: "Drugs & Medicine Specifications",
           subItems: [
@@ -95,11 +94,22 @@ const AppSidebar: React.FC = () => {
             { name: "Anatomicals", path: "/products/drug_technical_descriptions/anatomicals" },
             { name: "Therapeutics", path: "/products/drug_technical_descriptions/therapeutics" },
             { name: "Pharmacologicals", path: "/products/drug_technical_descriptions/pharmacologicals" },
-        
           ],
         },
-       
-       
+      ],
+    },
+    {
+      icon: <BoxIcon />,
+      name: "Inventories",
+      subItems: [
+        { name: "Inbound Stocks", path: "/inventories/inbound-stocks" },
+      ],
+    },
+    {
+      icon: <BoxIcon />,
+      name: "Deliveries",
+      subItems: [
+        { name: "Units", path: "/deliveries/units" },
       ],
     }
     //   icon: <PageIcon />,
@@ -203,7 +213,17 @@ const AppSidebar: React.FC = () => {
     });
 
     if (!submenuMatched) {
-      if (!(location.pathname === '/products' && openSubmenu && openSubmenu.type === "main" && navItems[openSubmenu.index]?.name === "Products")) {
+      const isOnLandingWithOpenMenu =
+        openSubmenu &&
+        openSubmenu.type === "main" &&
+        ((location.pathname === "/products" &&
+          navItems[openSubmenu.index]?.name === "Products") ||
+          (location.pathname === "/inventories" &&
+            navItems[openSubmenu.index]?.name === "Inventories") ||
+          (location.pathname === "/deliveries" &&
+            navItems[openSubmenu.index]?.name === "Deliveries"));
+
+      if (!isOnLandingWithOpenMenu) {
         setOpenSubmenu(null);
       }
     }
@@ -301,7 +321,17 @@ const AppSidebar: React.FC = () => {
           {nav.subItems ? (
             <button
               onClick={() => {
-                if (nav.name === "Products") {
+                if (
+                  nav.name === "Products" ||
+                  nav.name === "Inventories" ||
+                  nav.name === "Deliveries"
+                ) {
+                  const landingPath =
+                    nav.name === "Products"
+                      ? "/products"
+                      : nav.name === "Inventories"
+                      ? "/inventories"
+                      : "/deliveries";
                   const isCurrentlyOpen =
                     openSubmenu?.type === menuType &&
                     openSubmenu?.index === index;
@@ -309,7 +339,7 @@ const AppSidebar: React.FC = () => {
                   if (isCurrentlyOpen) {
                     handleSubmenuToggle(index, menuType);
                   } else {
-                    navigate("/products");
+                    navigate(landingPath);
                     handleSubmenuToggle(index, menuType);
                   }
                 } else {

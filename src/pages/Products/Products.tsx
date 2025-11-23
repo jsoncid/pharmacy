@@ -17,7 +17,7 @@ import Checkbox from "../../components/form/input/Checkbox";
 import Select from "../../components/form/Select";
 import { Modal } from "../../components/ui/modal";
 import { useModal } from "../../hooks/useModal";
-import ProductDescriptionDetails from "../../components/products/ProductDescriptionDetails";
+import ProductDescriptionDetails from "../../components/DescriptionHooks/ProductDescriptionDetails";
 
 const databases = new Databases(client);
 const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
@@ -68,6 +68,7 @@ interface ProductDescription {
   usabilities?: string;
   straps?: string;
   contents?: string;
+  delivery_lock_status?: boolean;
 }
 
 interface Category {
@@ -645,6 +646,7 @@ export default function ProductsLanding() {
                           <TableCell className="px-5 py-4 text-start text-gray-600 text-theme-sm dark:text-gray-300">
                             <ProductDescriptionDetails
                               record={record}
+                              categories={categories}
                               materials={materialsData}
                               sizes={sizesData}
                               capacityVolumes={capacityVolumesData}
@@ -667,6 +669,7 @@ export default function ProductsLanding() {
                                 variant="primary"
                                 className="bg-blue-600 hover:bg-blue-700"
                                 onClick={() => openEditModal(record)}
+                                disabled={record.delivery_lock_status === true}
                               >
                                 Edit
                               </Button>
@@ -675,6 +678,7 @@ export default function ProductsLanding() {
                                 variant="primary"
                                 className="bg-gray-500 hover:bg-gray-600"
                                 onClick={() => openDeleteModal(record)}
+                                disabled={record.delivery_lock_status === true}
                               >
                                 Deactivate
                               </Button>

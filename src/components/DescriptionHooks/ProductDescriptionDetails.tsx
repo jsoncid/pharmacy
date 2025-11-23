@@ -5,6 +5,7 @@ interface SimpleRef {
 
 interface ProductDescriptionRecord {
   name: string;
+  categories?: string;
   materials?: string;
   sizes?: string;
   capacityVolumes?: string;
@@ -18,6 +19,7 @@ interface ProductDescriptionRecord {
 
 interface ProductDescriptionDetailsProps {
   record: ProductDescriptionRecord;
+  categories?: SimpleRef[];
   materials: SimpleRef[];
   sizes: SimpleRef[];
   capacityVolumes: SimpleRef[];
@@ -32,6 +34,7 @@ interface ProductDescriptionDetailsProps {
 
 const ProductDescriptionDetails = ({
   record,
+  categories,
   materials,
   sizes,
   capacityVolumes,
@@ -78,6 +81,10 @@ const ProductDescriptionDetails = ({
     record.containers &&
     containers.find((item) => item.$id === record.containers)?.description;
 
+  const categoryLabel =
+    record.categories &&
+    categories?.find((item) => item.$id === record.categories)?.description;
+
   const rootClassName = className
     ? `flex flex-col ${className}`
     : "flex flex-col";
@@ -85,6 +92,11 @@ const ProductDescriptionDetails = ({
   return (
     <div className={rootClassName}>
       <span>{record.name}</span>
+      {categoryLabel && (
+        <span className="text-xs text-gray-500 dark:text-gray-400">
+          Category: {categoryLabel}
+        </span>
+      )}
       {materialLabel && (
         <span className="text-xs text-gray-500 dark:text-gray-400">
           Material: {materialLabel}
