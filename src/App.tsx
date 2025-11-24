@@ -43,6 +43,7 @@ import Sterilities from "./pages/Products/MedicalSuppliesTechnicalDescriptions/S
 import Usabilities from "./pages/Products/MedicalSuppliesTechnicalDescriptions/Usabilities";
 import Contents from "./pages/Products/MedicalSuppliesTechnicalDescriptions/Contents";
 import Straps from "./pages/Products/MedicalSuppliesTechnicalDescriptions/Straps";
+import Notifications from "./pages/OtherPage/Notifications";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { useEffect } from "react";
 import { Databases, Query, Functions } from "appwrite";
@@ -196,6 +197,7 @@ function AppContent() {
           <Route path="/products/drug_technical_descriptions/containers" element={<Containers />} />
 
           {/* Others Page */}
+          <Route path="/notifications" element={<Notifications />} />
           <Route path="/profile" element={<ProtectedRoute requiredTeamId="users"><UserProfiles /></ProtectedRoute>} />
           <Route path="/teams" element={<ProtectedRoute requiredTeamId="system-administrators"><Teams /></ProtectedRoute>} />
           <Route path="/users" element={<ProtectedRoute requiredTeamId="system-administrators"><Users /></ProtectedRoute>} />

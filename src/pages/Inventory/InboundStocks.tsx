@@ -103,6 +103,8 @@ const CONTAINER_COLLECTION_ID =
   import.meta.env.VITE_APPWRITE_COLLECTION_CONTAINERS;
 const INVENTORIES_COLLECTION_ID =
   import.meta.env.VITE_APPWRITE_COLLECTION_INVENTORIES;
+const NOTIFICATIONS_COLLECTION_ID =
+  import.meta.env.VITE_APPWRITE_COLLECTION_NOTIFICATIONS;
 
 export default function InboundStocks() {
   const [items, setItems] = useState<InboundItem[]>([]);
@@ -423,6 +425,25 @@ export default function InboundStocks() {
           commission_value: addMedicalRepresentative ? commValue : null,
         },
       });
+
+      if (addMedicalRepresentative && selectedRepresentativeId.trim()) {
+        try {
+          await databases.createDocument({
+            databaseId: DATABASE_ID,
+            collectionId: NOTIFICATIONS_COLLECTION_ID,
+            documentId: ID.unique(),
+            data: {
+              user_id: selectedRepresentativeId,
+              title: "Inbound stock item approved",
+              message:
+                "Your stock request has been approved. The sales incentive for this item will be posted to your account.",
+              is_read: false,
+            },
+          });
+          
+        } catch {
+        }
+      }
 
       // 2) Mark delivery item as approved
       await databases.updateDocument({
