@@ -39,15 +39,33 @@ export default function Notifications() {
       try {
         setLoading(true);
         setError(null);
-        const res = await databases.listDocuments(
-          DATABASE_ID,
-          NOTIFICATIONS_COLLECTION_ID,
-          [
-            Query.equal("user_id", user.$id),
-            Query.orderDesc("$createdAt"),
-          ],
-        );
-        setNotifications(res.documents as unknown as NotificationRecord[]);
+        const pageLimit = 100;
+        let all: NotificationRecord[] = [];
+        let offset = 0;
+
+        for (;;) {
+          const res = await databases.listDocuments(
+            DATABASE_ID,
+            NOTIFICATIONS_COLLECTION_ID,
+            [
+              Query.equal("user_id", user.$id),
+              Query.orderDesc("$createdAt"),
+              Query.limit(pageLimit),
+              Query.offset(offset),
+            ],
+          );
+
+          const docs = res.documents as unknown as NotificationRecord[];
+          all = all.concat(docs);
+
+          if (docs.length < pageLimit) {
+            break;
+          }
+
+          offset += pageLimit;
+        }
+
+        setNotifications(all);
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Failed to load notifications",
