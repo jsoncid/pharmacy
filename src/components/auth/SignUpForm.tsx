@@ -206,7 +206,7 @@ export default function SignUpForm() {
                 </div>
                 {/* <!-- Button --> */}
                 <div>
-                  <Button className="w-full" size="sm" disabled={loading}>
+                  <Button className="w-full" size="sm" type="submit" disabled={loading}>
                     {loading ? "Signing up..." : "Sign Up"}
                   </Button>
                 </div>
