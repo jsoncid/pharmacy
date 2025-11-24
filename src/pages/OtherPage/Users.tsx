@@ -130,7 +130,7 @@ export default function UsersPage() {
 
         {/* Create User */}
         <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4 shadow-md dark:border-gray-700 dark:bg-gray-800/50">
-            <h4 className="mb-3 text-base font-medium">Create User</h4>
+            <h4 className="mb-3 text-base font-medium dark:text-white">Create User</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <InputField
                 type="text"
@@ -164,7 +164,7 @@ export default function UsersPage() {
         <div>
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h4 className="mb-3 text-base font-medium">Users</h4>
+              <h4 className="font-medium text-gray-800 dark:text-white">Users</h4>
               <p className="text-xs text-gray-500">
                 All registered users in the system.
               </p>
@@ -225,11 +225,11 @@ export default function UsersPage() {
                         <TableRow key={user.$id}>
                           <TableCell className="px-5 py-4 text-start">
                             {editingUser === user.$id ? (
-                              <input
+                              <InputField
                                 type="text"
                                 value={editUser.name}
                                 onChange={(e) => setEditUser({ ...editUser, name: e.target.value })}
-                                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-white text-sm"
+                                className="w-full text-sm"
                               />
                             ) : (
                               <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
@@ -239,11 +239,11 @@ export default function UsersPage() {
                           </TableCell>
                           <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
                             {editingUser === user.$id ? (
-                              <input
+                              <InputField
                                 type="email"
                                 value={editUser.email}
                                 onChange={(e) => setEditUser({ ...editUser, email: e.target.value })}
-                                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-white text-sm"
+                                className="w-full text-sm"
                               />
                             ) : (
                               <span className="text-gray-500 text-theme-sm dark:text-gray-400">

@@ -6,6 +6,8 @@ import PageMeta from "../../components/common/PageMeta";
 import { Table, TableHeader, TableBody, TableRow, TableCell } from "../../components/ui/table";
 import Button from "../../components/ui/button/Button";
 import InputField from "../../components/form/input/InputField";
+import Form from "../../components/form/Form";
+import Select from "../../components/form/Select";
 
 const databases = new Databases(client);
 const functionsAPI = new Functions(client);
@@ -285,8 +287,7 @@ export default function UserLevelAssignmentPage() {
     setEditingId(assignment.$id);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     try {
       if (isEditing && editingId) {
         await updateAssignment(editingId, selectedUserId, selectedLevelId);
@@ -322,7 +323,12 @@ export default function UserLevelAssignmentPage() {
           <h4 className="mb-4 font-medium text-gray-800 dark:text-white">
             {isEditing ? 'Edit Assignment' : 'Create New Assignment'}
           </h4>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <Form
+            onSubmit={() => {
+              void handleSubmit();
+            }}
+            className="space-y-4"
+          >
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                 User
@@ -331,22 +337,20 @@ export default function UserLevelAssignmentPage() {
                 <p className="text-xs text-gray-600 dark:text-gray-400">Loading users...</p>
               ) : getFilteredUsers().length === 0 ? (
                 <p className="text-xs text-gray-600 dark:text-gray-400">
-                  {isEditing ? 'No other users available for reassignment' : 'No available users (all users already have assignments)'}
+                  {isEditing
+                    ? 'No other users available for reassignment'
+                    : 'No available users (all users already have assignments)'}
                 </p>
               ) : (
-                <select
-                  value={selectedUserId}
-                  onChange={(e) => setSelectedUserId(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm"
-                  required
-                >
-                  <option value="">Select a user</option>
-                  {getFilteredUsers().map((user) => (
-                    <option key={user.$id} value={user.$id}>
-                      {user.name} ({user.email})
-                    </option>
-                  ))}
-                </select>
+                <Select
+                  options={getFilteredUsers().map((user) => ({
+                    value: user.$id,
+                    label: `${user.name} (${user.email})`,
+                  }))}
+                  placeholder="Select a user"
+                  defaultValue={selectedUserId}
+                  onChange={(value) => setSelectedUserId(value)}
+                />
               )}
             </div>
 
@@ -359,31 +363,30 @@ export default function UserLevelAssignmentPage() {
               ) : availableLevels.length === 0 ? (
                 <p className="text-xs text-gray-600 dark:text-gray-400">No user levels available</p>
               ) : (
-                <select
-                  value={selectedLevelId}
-                  onChange={(e) => setSelectedLevelId(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm"
-                  required
-                >
-                  <option value="">Select a user level</option>
-                  {availableLevels.map((level) => (
-                    <option key={level.$id} value={level.$id}>
-                      {level.level_description}
-                    </option>
-                  ))}
-                </select>
+                <Select
+                  options={availableLevels.map((level) => ({
+                    value: level.$id,
+                    label: level.level_description,
+                  }))}
+                  placeholder="Select a user level"
+                  defaultValue={selectedLevelId}
+                  onChange={(value) => setSelectedLevelId(value)}
+                />
               )}
             </div>
 
             <div className="flex gap-2">
-              <button
+              <Button
+                size="sm"
+                variant="primary"
+                className="bg-green-600 hover:bg-green-700"
                 type="submit"
-                className="rounded bg-green-600 px-4 py-2 text-white hover:bg-green-700 focus:outline-none"
               >
                 {isEditing ? 'Update' : 'Create'}
-              </button>
+              </Button>
               {isEditing && (
                 <Button
+                  size="sm"
                   variant="outline"
                   onClick={resetForm}
                 >
@@ -391,7 +394,7 @@ export default function UserLevelAssignmentPage() {
                 </Button>
               )}
             </div>
-          </form>
+          </Form>
         </div>
 
         {/* Assignments List */}

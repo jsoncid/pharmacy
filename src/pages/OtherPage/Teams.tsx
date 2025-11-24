@@ -7,6 +7,9 @@ import PageMeta from "../../components/common/PageMeta";
 import { Table, TableHeader, TableBody, TableRow, TableCell } from "../../components/ui/table";
 import Button from "../../components/ui/button/Button";
 import InputField from "../../components/form/input/InputField";
+import Form from "../../components/form/Form";
+import { Modal } from "../../components/ui/modal";
+import { useModal } from "../../hooks/useModal";
 
 const teams = new Teams(client);
 
@@ -28,6 +31,8 @@ export default function TeamsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const createModal = useModal(false);
+  const editModal = useModal(false);
 
   useEffect(() => {
     if (newTeamName.trim()) {
@@ -68,6 +73,7 @@ export default function TeamsPage() {
       setNewTeamName("");
       setNewTeamId("");
       fetchTeams();
+      createModal.closeModal();
     } catch (error) {
       console.error("Error creating team:", error);
     }
@@ -80,20 +86,28 @@ export default function TeamsPage() {
       setEditingTeam(null);
       setEditName("");
       fetchTeams();
+      editModal.closeModal();
     } catch (error) {
       console.error("Error updating team:", error);
     }
   };
 
-
   const startEdit = (team: Team) => {
     setEditingTeam(team);
     setEditName(team.name);
+    editModal.openModal();
   };
 
   const cancelEdit = () => {
     setEditingTeam(null);
     setEditName("");
+    editModal.closeModal();
+  };
+
+  const openCreateModal = () => {
+    setNewTeamName("");
+    setNewTeamId("");
+    createModal.openModal();
   };
 
   // Filter teams based on search query
@@ -135,29 +149,21 @@ export default function TeamsPage() {
 
         {/* Create Team */}
         <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4 shadow-md dark:border-gray-700 dark:bg-gray-800/50">
-          <h4 className="mb-3 text-base font-medium">Create New Team</h4>
-          <div className="flex gap-3">
-            <InputField
-              type="text"
-              value={newTeamName}
-              onChange={(e) => setNewTeamName(e.target.value)}
-              placeholder="Enter team name"
-            />
-            <Button
-              size="sm"
-              variant="primary"
-              className="bg-green-600 hover:bg-green-700 px-5 py-3.5"
-              onClick={createTeam}
-            >
-              Create
-            </Button>
-          </div>
+          <h4 className="mb-3 text-base font-medium dark:text-white">Create New Team</h4>
+          <Button
+            size="sm"
+            variant="primary"
+            className="bg-green-600 hover:bg-green-700 px-5 py-3.5"
+            onClick={openCreateModal}
+          >
+            Create Team
+          </Button>
         </div>
 
         {/* Teams List */}
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h4 className="mb-3 text-base font-medium">Teams</h4>
+            <h4 className="font-medium text-gray-800 dark:text-white">Teams</h4>
             <div className="flex items-center gap-2">
               <InputField
                 type="text"
@@ -168,9 +174,9 @@ export default function TeamsPage() {
             </div>
           </div>
           {loading ? (
-            <p>Loading...</p>
+            <p className="dark:text-white">Loading...</p>
           ) : getFilteredTeams().length === 0 ? (
-            <p className="text-gray-500">
+            <p className="text-gray-500 dark:text-white">
               {teamsList.length === 0 ? 'No teams found.' : 'No teams match your search.'}
             </p>
           ) : (
@@ -219,18 +225,9 @@ export default function TeamsPage() {
                       {getPaginatedTeams().map((team) => (
                         <TableRow key={team.$id}>
                           <TableCell className="px-5 py-4 text-start">
-                            {editingTeam?.$id === team.$id ? (
-                              <input
-                                type="text"
-                                value={editName}
-                                onChange={(e) => setEditName(e.target.value)}
-                                className="w-full rounded border border-gray-300 px-2 py-1 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-white text-sm"
-                              />
-                            ) : (
-                              <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                                {team.name}
-                              </span>
-                            )}
+                            <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
+                              {team.name}
+                            </span>
                           </TableCell>
                           <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
                             {team.$id}
@@ -242,35 +239,14 @@ export default function TeamsPage() {
                             {new Date(team.$createdAt).toLocaleDateString()}
                           </TableCell>
                           <TableCell className="px-4 py-3 text-start">
-                            {editingTeam?.$id === team.$id ? (
-                              <div className="flex gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="primary"
-                                  className="bg-green-600 hover:bg-green-700"
-                                  onClick={updateTeam}
-                                >
-                                  Save
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="bg-gray-600 hover:bg-gray-700 text-white border-gray-600"
-                                  onClick={cancelEdit}
-                                >
-                                  Cancel
-                                </Button>
-                              </div>
-                            ) : (
-                              <Button
-                                size="sm"
-                                variant="primary"
-                                className="bg-blue-600 hover:bg-blue-700"
-                                onClick={() => startEdit(team)}
-                              >
-                                Edit
-                              </Button>
-                            )}
+                            <Button
+                              size="sm"
+                              variant="primary"
+                              className="bg-blue-600 hover:bg-blue-700"
+                              onClick={() => startEdit(team)}
+                            >
+                              Edit
+                            </Button>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -312,6 +288,92 @@ export default function TeamsPage() {
           )}
         </div>
       </div>
+
+      {/* Create Team Modal */}
+      <Modal
+        isOpen={createModal.isOpen}
+        onClose={createModal.closeModal}
+        className="max-w-md w-full p-6"
+      >
+        <div className="space-y-4">
+          <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
+            Create Team
+          </h4>
+          <Form
+            onSubmit={() => {
+              void createTeam();
+            }}
+            className="space-y-4"
+          >
+            <InputField
+              type="text"
+              placeholder="Team name"
+              value={newTeamName}
+              onChange={(e) => setNewTeamName(e.target.value)}
+            />
+            <div className="flex justify-end gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={createModal.closeModal}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                variant="primary"
+                className="bg-green-600 hover:bg-green-700"
+                type="submit"
+              >
+                Create
+              </Button>
+            </div>
+          </Form>
+        </div>
+      </Modal>
+
+      {/* Edit Team Modal */}
+      <Modal
+        isOpen={editModal.isOpen}
+        onClose={cancelEdit}
+        className="max-w-md w-full p-6"
+      >
+        <div className="space-y-4">
+          <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
+            Edit Team
+          </h4>
+          <Form
+            onSubmit={() => {
+              void updateTeam();
+            }}
+            className="space-y-4"
+          >
+            <InputField
+              type="text"
+              placeholder="Team name"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+            />
+            <div className="flex justify-end gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={cancelEdit}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                variant="primary"
+                className="bg-green-600 hover:bg-green-700"
+                type="submit"
+              >
+                Save
+              </Button>
+            </div>
+          </Form>
+        </div>
+      </Modal>
     </>
   );
 }

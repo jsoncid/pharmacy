@@ -6,6 +6,8 @@ import PageMeta from "../../components/common/PageMeta";
 import { Table, TableHeader, TableBody, TableRow, TableCell } from "../../components/ui/table";
 import Button from "../../components/ui/button/Button";
 import InputField from "../../components/form/input/InputField";
+import Form from "../../components/form/Form";
+import Checkbox from "../../components/form/input/Checkbox";
 
 const databases = new Databases(client);
 const teams = new Teams(client);
@@ -220,8 +222,7 @@ export default function UserLevelPage() {
     );
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     try {
       if (isEditing && editingId) {
         await updateAssignment(editingId, levelDescription, teamPermissions);
@@ -257,7 +258,12 @@ export default function UserLevelPage() {
           <h4 className="mb-4 font-medium text-gray-800 dark:text-white">
             {isEditing ? 'Edit Assignment' : 'Create New User Level Assignment'}
           </h4>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <Form
+            onSubmit={() => {
+              void handleSubmit();
+            }}
+            className="space-y-4"
+          >
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Level Description
@@ -287,32 +293,23 @@ export default function UserLevelPage() {
 
                     return (
                       <div key={team.$id} className="border-b border-gray-200 pb-3 last:border-b-0 dark:border-gray-700">
-                        <label className="flex items-center space-x-2 mb-2">
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={(e) => handleTeamToggle(team.$id, e.target.checked)}
-                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
-                          />
-                          <span className="font-medium text-xs text-gray-700 dark:text-gray-300">
-                            {team.name} ({team.total} member/s)
-                          </span>
-                        </label>
+                        <Checkbox
+                          label={`${team.name} (${team.total} member/s)`}
+                          checked={isSelected}
+                          onChange={(checked) => handleTeamToggle(team.$id, checked)}
+                        />
 
                         {isSelected && (
                           <div className="ml-6 grid grid-cols-2 gap-2">
                             {crudPermissions.map((permission) => (
-                              <label key={permission} className="flex items-center space-x-2">
-                                <input
-                                  type="checkbox"
-                                  checked={permissions.includes(permission)}
-                                  onChange={(e) => handlePermissionToggle(team.$id, permission, e.target.checked)}
-                                  className="rounded border-gray-300 text-green-600 focus:ring-green-500 dark:border-gray-600 dark:bg-gray-700"
-                                />
-                                <span className="text-xs text-gray-600 dark:text-gray-400 capitalize">
-                                  {permission}
-                                </span>
-                              </label>
+                              <Checkbox
+                                key={permission}
+                                label={permission}
+                                checked={permissions.includes(permission)}
+                                onChange={(checked) =>
+                                  handlePermissionToggle(team.$id, permission, checked)
+                                }
+                              />
                             ))}
                           </div>
                         )}
@@ -349,7 +346,7 @@ export default function UserLevelPage() {
                 </Button>
               )}
             </div>
-          </form>
+          </Form>
         </div>
 
         {/* Assignments List */}

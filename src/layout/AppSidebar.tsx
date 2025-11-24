@@ -47,6 +47,21 @@ const AppSidebar: React.FC = () => {
       name: "User Profile",
       path: "/profile",
     }] : []),
+     {
+      icon: <BoxIcon />,
+      name: "Inventories",
+      subItems: [
+        { name: "Inbound Stocks", path: "/inventories/inbound-stocks" },
+      ],
+    },
+
+    {
+      icon: <BoxIcon />,
+      name: "Deliveries",
+      subItems: [
+        { name: "Units", path: "/deliveries/units" },
+      ],
+    },
 
     {
       icon: <BoxIcon />,
@@ -98,20 +113,8 @@ const AppSidebar: React.FC = () => {
         },
       ],
     },
-    {
-      icon: <BoxIcon />,
-      name: "Inventories",
-      subItems: [
-        { name: "Inbound Stocks", path: "/inventories/inbound-stocks" },
-      ],
-    },
-    {
-      icon: <BoxIcon />,
-      name: "Deliveries",
-      subItems: [
-        { name: "Units", path: "/deliveries/units" },
-      ],
-    }
+   
+    
     //   icon: <PageIcon />,
     //   name: "My books",
     //   path: "/my-books",
