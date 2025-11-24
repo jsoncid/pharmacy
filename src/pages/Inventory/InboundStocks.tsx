@@ -399,9 +399,17 @@ export default function InboundStocks() {
 
     setApproveFormError(null);
 
+    let transactionId: string | null = null;
+    let transactionIdentefier = false;
+
     try {
       setSubmittingApprove(true);
       setApprovingId(item.$id);
+
+      const transaction = await databases.createTransaction({
+        ttl: 60,
+      });
+      transactionId = transaction.$id;
 
       // 1) Create inventory document
       await databases.createDocument({
@@ -424,7 +432,21 @@ export default function InboundStocks() {
           commission_base: addMedicalRepresentative ? commissionBase : null,
           commission_value: addMedicalRepresentative ? commValue : null,
         },
+        transactionId,
       });
+
+      // 2) Lock the product descriptions after approved
+      if (item.productDescriptions) {
+        await databases.updateDocument({
+          databaseId: DATABASE_ID,
+          collectionId: PRODUCT_DESCRIPTIONS_COLLECTION_ID,
+          documentId: item.productDescriptions,
+          data: {
+            delivery_lock_status: true,
+          },
+          transactionId,
+        });
+      }
 
       if (addMedicalRepresentative && selectedRepresentativeId.trim()) {
         try {
@@ -439,24 +461,13 @@ export default function InboundStocks() {
                 "Your stock request has been approved. The sales incentive for this item will be posted to your account.",
               is_read: false,
             },
+            transactionId,
           });
-          
         } catch {
         }
       }
 
-      // 2) Mark delivery item as approved
-      await databases.updateDocument({
-        databaseId: DATABASE_ID,
-        collectionId: DELIVERY_ITEMS_COLLECTION_ID,
-        documentId: item.$id,
-        data: {
-          is_approved: true,
-          status: false,
-        },
-      });
-
-      // 3) Optionally deactivate the parent delivery if no other items remain
+      // // 3) Optionally deactivate the parent delivery if no other items remain
       if (item.deliveries) {
         const remainingForDelivery = items.filter(
           (i) => i.deliveries === item.deliveries && i.$id !== item.$id,
@@ -470,13 +481,68 @@ export default function InboundStocks() {
             data: {
               status: false,
             },
+            transactionId,
           });
         }
+      }
+
+      if (transactionId) {
+        await databases.updateTransaction({
+          transactionId,
+          commit: true,
+        });
+        transactionId = null;
+        transactionIdentefier = true;
+      }
+
+      // 2) Mark delivery item as approved
+      const deliveryTx = await databases.createTransaction({
+        ttl: 60,
+      });
+      const deliveryTxId = deliveryTx.$id;
+
+      try {
+        await databases.updateDocument({
+          databaseId: DATABASE_ID,
+          collectionId: DELIVERY_ITEMS_COLLECTION_ID,
+          documentId: item.$id,
+          data: {
+            is_approved: true,
+            status: false,
+          },
+          transactionId: deliveryTxId,
+        });
+
+        if (transactionId && transactionIdentefier) {
+          await databases.updateTransaction({
+            transactionId: deliveryTxId,
+            commit: true,
+          });
+        }
+      } catch (error) {
+        try {
+          await databases.updateTransaction({
+            transactionId: deliveryTxId,
+            rollback: true,
+          });
+        } catch {
+        }
+        throw error;
       }
 
       setItems((prev) => prev.filter((i) => i.$id !== item.$id));
       closeApproveModal();
     } catch (err) {
+      if (transactionId) {
+        try {
+          await databases.updateTransaction({
+            transactionId,
+            rollback: true,
+          });
+        } catch {
+        }
+      }
+
       const message =
         err instanceof Error ? err.message : "Failed to approve inbound item";
       setError(message);
