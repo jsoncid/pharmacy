@@ -54,11 +54,33 @@ export default function Straps() {
     try {
       setLoading(true);
       setError(null);
-      const response = await databases.listDocuments(DATABASE_ID, COLLECTION_ID, [
-        Query.orderDesc("$createdAt"),
-        Query.equal("status", true),
-      ]);
-      setStraps(response.documents as unknown as Strap[]);
+      const pageLimit = 100;
+      let all: Strap[] = [];
+      let offset = 0;
+
+      for (;;) {
+        const response = await databases.listDocuments(
+          DATABASE_ID,
+          COLLECTION_ID,
+          [
+            Query.orderDesc("$createdAt"),
+            Query.equal("status", true),
+            Query.limit(pageLimit),
+            Query.offset(offset),
+          ],
+        );
+
+        const docs = response.documents as unknown as Strap[];
+        all = all.concat(docs);
+
+        if (docs.length < pageLimit) {
+          break;
+        }
+
+        offset += pageLimit;
+      }
+
+      setStraps(all);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to fetch straps",

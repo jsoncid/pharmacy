@@ -80,7 +80,9 @@ Additional development dependencies include PostCSS for CSS processing and SVG i
 6. When generating tables:
    - Use reusable table components
    - Never manually write raw `<table>` structure
+   -  fetch all documents from Appwrite in batches using limit and offset, so your table pagination should now cover all records
    - Follow my pagination limit to 10 and sorting patterns
+
 
 7. When unsure which component to use:
    - Use the closest matching component from my existing UI folder
@@ -219,6 +221,3 @@ Loop through your data and create each document with the transaction object.
 Commit at the end to apply all changes.
 If any save fails, the transaction rolls back automatically.
 Permissions can be customized per document if needed.
-
-
-

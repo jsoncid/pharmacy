@@ -157,16 +157,34 @@ export default function InboundStocks() {
       try {
         setLoading(true);
         setError(null);
-        const res = await databases.listDocuments(
-          DATABASE_ID,
-          DELIVERY_ITEMS_COLLECTION_ID,
-          [
-            Query.orderDesc("$createdAt"),
-            Query.equal("status", true),
-            Query.equal("is_approved", false),
-          ],
-        );
-        setItems(res.documents as unknown as InboundItem[]);
+        const pageLimit = 100;
+        let all: InboundItem[] = [];
+        let offset = 0;
+
+        for (;;) {
+          const res = await databases.listDocuments(
+            DATABASE_ID,
+            DELIVERY_ITEMS_COLLECTION_ID,
+            [
+              Query.orderDesc("$createdAt"),
+              Query.equal("status", true),
+              Query.equal("is_approved", false),
+              Query.limit(pageLimit),
+              Query.offset(offset),
+            ],
+          );
+
+          const docs = res.documents as unknown as InboundItem[];
+          all = all.concat(docs);
+
+          if (docs.length < pageLimit) {
+            break;
+          }
+
+          offset += pageLimit;
+        }
+
+        setItems(all);
       } catch (err) {
         setError(
           err instanceof Error

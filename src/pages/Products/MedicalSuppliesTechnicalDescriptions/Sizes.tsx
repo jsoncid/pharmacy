@@ -54,11 +54,33 @@ export default function Sizes() {
     try {
       setLoading(true);
       setError(null);
-      const response = await databases.listDocuments(DATABASE_ID, COLLECTION_ID, [
-        Query.orderDesc("$createdAt"),
-        Query.equal("status", true),
-      ]);
-      setSizes(response.documents as unknown as Size[]);
+      const pageLimit = 100;
+      let all: Size[] = [];
+      let offset = 0;
+
+      for (;;) {
+        const response = await databases.listDocuments(
+          DATABASE_ID,
+          COLLECTION_ID,
+          [
+            Query.orderDesc("$createdAt"),
+            Query.equal("status", true),
+            Query.limit(pageLimit),
+            Query.offset(offset),
+          ],
+        );
+
+        const docs = response.documents as unknown as Size[];
+        all = all.concat(docs);
+
+        if (docs.length < pageLimit) {
+          break;
+        }
+
+        offset += pageLimit;
+      }
+
+      setSizes(all);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to fetch sizes",

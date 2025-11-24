@@ -54,11 +54,44 @@ export default function Therapeutics() {
     try {
       setLoading(true);
       setError(null);
-      const response = await databases.listDocuments(DATABASE_ID, COLLECTION_ID, [
-        Query.orderDesc("$createdAt"),
-        Query.equal("status", true),
-      ]);
-      setTherapeutics(response.documents as unknown as Therapeutic[]);
+      const pageSize = 100;
+      const allTherapeutics: Therapeutic[] = [];
+      let cursor: string | undefined;
+
+      // Fetch all pages of active therapeutics using cursor-based pagination
+      // so the table pagination can see the full dataset.
+      // (We stop when a page returns fewer than pageSize documents.)
+      // Note: Query methods return strings, which we collect into the queries array.
+
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const queries: string[] = [
+          Query.orderDesc("$createdAt"),
+          Query.equal("status", true),
+          Query.limit(pageSize),
+        ];
+
+        if (cursor) {
+          queries.push(Query.cursorAfter(cursor));
+        }
+
+        const response = await databases.listDocuments(
+          DATABASE_ID,
+          COLLECTION_ID,
+          queries,
+        );
+
+        const docs = response.documents as unknown as Therapeutic[];
+        allTherapeutics.push(...docs);
+
+        if (docs.length < pageSize) {
+          break;
+        }
+
+        cursor = docs[docs.length - 1].$id;
+      }
+
+      setTherapeutics(allTherapeutics);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to fetch therapeutics",

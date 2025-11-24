@@ -56,11 +56,33 @@ export default function Sterilities() {
     try {
       setLoading(true);
       setError(null);
-      const response = await databases.listDocuments(DATABASE_ID, COLLECTION_ID, [
-        Query.orderDesc("$createdAt"),
-        Query.equal("status", true),
-      ]);
-      setSterilities(response.documents as unknown as Sterility[]);
+      const pageLimit = 100;
+      let all: Sterility[] = [];
+      let offset = 0;
+
+      for (;;) {
+        const response = await databases.listDocuments(
+          DATABASE_ID,
+          COLLECTION_ID,
+          [
+            Query.orderDesc("$createdAt"),
+            Query.equal("status", true),
+            Query.limit(pageLimit),
+            Query.offset(offset),
+          ],
+        );
+
+        const docs = response.documents as unknown as Sterility[];
+        all = all.concat(docs);
+
+        if (docs.length < pageLimit) {
+          break;
+        }
+
+        offset += pageLimit;
+      }
+
+      setSterilities(all);
     } catch (err) {
       setError(
         err instanceof Error

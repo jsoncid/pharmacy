@@ -54,11 +54,33 @@ export default function DosageForms() {
     try {
       setLoading(true);
       setError(null);
-      const response = await databases.listDocuments(DATABASE_ID, COLLECTION_ID, [
-        Query.orderDesc("$createdAt"),
-        Query.equal("status", true),
-      ]);
-      setDosageForms(response.documents as unknown as DosageForm[]);
+      const pageLimit = 100;
+      let all: DosageForm[] = [];
+      let offset = 0;
+
+      for (;;) {
+        const response = await databases.listDocuments(
+          DATABASE_ID,
+          COLLECTION_ID,
+          [
+            Query.orderDesc("$createdAt"),
+            Query.equal("status", true),
+            Query.limit(pageLimit),
+            Query.offset(offset),
+          ],
+        );
+
+        const docs = response.documents as unknown as DosageForm[];
+        all = all.concat(docs);
+
+        if (docs.length < pageLimit) {
+          break;
+        }
+
+        offset += pageLimit;
+      }
+
+      setDosageForms(all);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to fetch dosage forms",

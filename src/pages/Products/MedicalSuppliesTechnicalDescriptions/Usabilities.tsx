@@ -56,11 +56,33 @@ export default function Usabilities() {
     try {
       setLoading(true);
       setError(null);
-      const response = await databases.listDocuments(DATABASE_ID, COLLECTION_ID, [
-        Query.orderDesc("$createdAt"),
-        Query.equal("status", true),
-      ]);
-      setUsabilities(response.documents as unknown as Usability[]);
+      const pageLimit = 100;
+      let all: Usability[] = [];
+      let offset = 0;
+
+      for (;;) {
+        const response = await databases.listDocuments(
+          DATABASE_ID,
+          COLLECTION_ID,
+          [
+            Query.orderDesc("$createdAt"),
+            Query.equal("status", true),
+            Query.limit(pageLimit),
+            Query.offset(offset),
+          ],
+        );
+
+        const docs = response.documents as unknown as Usability[];
+        all = all.concat(docs);
+
+        if (docs.length < pageLimit) {
+          break;
+        }
+
+        offset += pageLimit;
+      }
+
+      setUsabilities(all);
     } catch (err) {
       setError(
         err instanceof Error

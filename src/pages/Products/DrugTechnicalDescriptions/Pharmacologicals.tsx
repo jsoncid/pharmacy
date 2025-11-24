@@ -57,11 +57,46 @@ export default function Pharmacologicals() {
     try {
       setLoading(true);
       setError(null);
-      const response = await databases.listDocuments(DATABASE_ID, COLLECTION_ID, [
-        Query.orderDesc("$createdAt"),
-        Query.equal("status", true),
-      ]);
-      setPharmacologicals(response.documents as unknown as Pharmacological[]);
+      const pageLimit = 100;
+      let all: Pharmacological[] = [];
+      let offset = 0;
+
+      // Fetch all active pharmacological records in batches
+      // so client-side pagination can use the full dataset.
+      // Appwrite listDocuments has a default limit (e.g. 25),
+      // so we loop with limit/offset until we exhaust results.
+      //
+      // We keep the same ordering by $createdAt (newest first).
+      //
+      // NOTE: If the collection grows very large, consider
+      // switching to server-side pagination instead.
+      //
+      // This loop will usually run only a few times
+      // (100 records per request).
+      //
+      for (;;) {
+        const response = await databases.listDocuments(
+          DATABASE_ID,
+          COLLECTION_ID,
+          [
+            Query.orderDesc("$createdAt"),
+            Query.equal("status", true),
+            Query.limit(pageLimit),
+            Query.offset(offset),
+          ],
+        );
+
+        const docs = response.documents as unknown as Pharmacological[];
+        all = all.concat(docs);
+
+        if (docs.length < pageLimit) {
+          break;
+        }
+
+        offset += pageLimit;
+      }
+
+      setPharmacologicals(all);
     } catch (err) {
       setError(
         err instanceof Error
