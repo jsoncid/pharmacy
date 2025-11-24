@@ -16,7 +16,7 @@ import Form from "../../components/form/Form";
 import Label from "../../components/form/Label";
 import { Modal } from "../../components/ui/modal";
 import { useModal } from "../../hooks/useModal";
-import Select from "../../components/form/Select";
+import SearchableSelect from "../../components/form/SearchableSelect";
 import DatePicker from "../../components/form/date-picker";
 import Checkbox from "../../components/form/input/Checkbox";
 import ProductDescriptionDetails from "../../components/DescriptionHooks/ProductDescriptionDetails";
@@ -1429,7 +1429,7 @@ function DeliveryForm(props: DeliveryFormProps) {
           
           <div className="md:col-span-3">
             <Label>Stocking Unit</Label>
-            <Select
+            <SearchableSelect
               options={units.map((u) => ({ value: u.$id, label: u.description }))}
               placeholder={unitsLoading ? "Loading units..." : "Select unit"}
               defaultValue={itemStockingUnit}

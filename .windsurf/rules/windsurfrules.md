@@ -2,222 +2,77 @@
 trigger: always_on
 ---
 
-Frontend Framework: React ^19.0.0
-Build Tool: Vite ^6.1.0
-Language: TypeScript ~5.7.2
-Styling: Tailwind CSS ^4.0.8
-Routing: React Router ^7.1.5
-Linting: ESLint ^9.19.0
-Charts: ApexCharts ^4.1.0, React ApexCharts ^1.7.0
-Calendar: FullCalendar (various packages, ^6.1.15)
-Maps: React JVectorMap (^1.0.4 for core, ^1.1.2 for world)
-UI Libraries: Swiper ^11.2.3, Flatpickr ^4.6.13
-Utilities: Clsx ^2.1.1, Tailwind Merge ^3.0.1, React DnD (^16.0.1), React Dropzone ^14.3.5, React Helmet Async ^2.0.5
-Backend-as-a-Service: Appwrite ^21.4.0
-Additional development dependencies include PostCSS for CSS processing and SVG import support via Vite plugin. The app is configured as a module-based ES modules project.
-
-
-
-
-
-Based on the Appwrite documentation for developing functions locally, here's what I learned:
-
-Key Points for Local Function Development:
-Dynamic API Keys: When running functions locally with appwrite run functions, the function automatically receives special headers that provide access to project services without requiring sessions or API keys.
-Local Execution: Use appwrite run functions --function-id "<FUNCTION_ID>" to run your function locally on a port (default 3000).
-Headers Available: The function receives headers that allow it to access Appwrite services. The documentation mentions x-appwrite-user-id and x-appwrite-user-jwt when using --user-id, but for dynamic API keys, there are additional headers available.
-No API Key Needed: For local development, you don't need to set setKey() - the dynamic headers provide the necessary permissions.
-For Your Function:
-Your current approach of using req.headers['x-appwrite-key'] might work, but the documentation suggests the headers are automatically provided. Try running your function locally:
-
-
-
-
-
-
-
-# UI Component Usage Rule
-
-When generating frontend code (React, Next.js, or any JSX/TSX):
-
-1. Always use the predefined UI components from my component library when creating:
-   - Textboxes / Input fields
-   - Textareas
-   - Buttons
-   - Tables
-   - Select dropdowns
-   - Modals
-   - Forms
-   - Cards
-   - Alerts / Toasts
-   - Other common UI elements
-
-2. Never use raw HTML elements like:
-   <input>, <button>, <table>, <select>, <form>, <textarea>
-
-3. The default components to use:
-   see C:\Users\USER\Documents\pharmacy\src\components
-
-4. Ensure all components follow my UI library style conventions:
-Language: TypeScript ~5.7.2
-Styling: Tailwind CSS ^4.0.8
-Routing: React Router ^7.1.5
-Linting: ESLint ^9.19.0
-Charts: ApexCharts ^4.1.0, React ApexCharts ^1.7.0
-Calendar: FullCalendar (various packages, ^6.1.15)
-Maps: React JVectorMap (^1.0.4 for core, ^1.1.2 for world)
-UI Libraries: Swiper ^11.2.3, Flatpickr ^4.6.13
-Utilities: Clsx ^2.1.1, Tailwind Merge ^3.0.1, React DnD (^16.0.1), React Dropzone ^14.3.5, React Helmet Async ^2.0.5
-Backend-as-a-Service: Appwrite ^21.4.0
-Additional development dependencies include PostCSS for CSS processing and SVG import support via Vite plugin. The app is configured as a module-based ES modules project.
-
-
-5. When creating a form:
-   - Always wrap fields with `<FormField />`
-   - Always include validation and error messages
-   - Always follow consistent spacing + layout
-
-6. When generating tables:
-   - Use reusable table components
-   - Never manually write raw `<table>` structure
-   -  fetch all documents from Appwrite in batches using limit and offset, so your table pagination should now cover all records
-   - Follow my pagination limit to 10 and sorting patterns
-
-
-7. When unsure which component to use:
-   - Use the closest matching component from my existing UI folder
-   - Or ask me what component should be used
-
-8.Button uniformity  follow a consistent pattern:
-
-Button size: Small
-Primary actions (Create, Update, Save): Green background with larger padding
-Edit buttons: Blue background
-Cancel buttons: Gray background
-Delete buttons: Red background
-Each button type maintains consistent sizing, colors, and hover states for a cohesive user interface.
-
-Input text sizes standardized to text-sm across all pages. All input fields, select elements, and search inputs now use consistent text sizing for a uniform user interface. This includes form inputs, search fields, and edit form inputs
-
-This rule applies to **all frontend file generations** in this project.
-
-
-
-
-Cursor Rules for CRUD: Always Modal
-1. General Principle
-
-All CRUD actions must open in a modal.
-
-Avoid inline editing or page redirection unless explicitly approved.
-
-2. Cursor Behavior Rules
-Cursor Action	Behavior	Modal Requirement
-Hover over CRUD buttons	Show pointer cursor	Yes
-Click on "Create" button	Opens modal form for creation	Mandatory
-Click on "Read"/"View" button	Opens modal displaying details	Mandatory
-Click on "Edit"/"Update" button	Opens modal pre-filled with record data	Mandatory
-Click on "Delete" button	Opens confirmation modal	Mandatory
-Click outside modal (backdrop)	Closes modal if allowed	Optional
-Keyboard shortcuts	Ctrl + N / Ctrl + E opens modal	Recommended
-3. Modal Design Rules
-
-Consistent layout across all CRUD modals.
-
-Header clearly indicates the action (Create, Edit, View, Delete).
-
-Form validation occurs inside the modal.
-
-Save/Submit buttons should close the modal on success.
-
-Cancel/Close buttons revert without changes.
-
-Modal size should be responsive:
-
-Small forms → small modal
-
-Large forms → medium/full modal
-
-4. UX Enhancements
-
-Always provide feedback messages inside the modal (success, error).
-
-If the modal contains a table/list, consider inline refresh without closing modal (optional).
-
-Ensure focus management: first input field active on open; focus returns to the CRUD button on close.
-
-
-
-
-
-
-
-
-Rules for Using .env Variables in Appwrite CLI / MCP Access
-1. General Principles
-
-Never hardcode IDs, keys, or sensitive data. Always use .env variables.
-.env variables should be clearly named, descriptive, and consistent.
-Variables must match Appwrite resources (Collections, Attributes, Functions) exactly as used in CLI or MCP scripts.
-Always validate .env variables before running CLI scripts or MCP automation.
-
-2. Naming Conventions
-Resource Type	Example .env Variable	Notes
-Project ID	APPWRITE_PROJECT_ID	Required for CLI initialization
-API Key / Secret	APPWRITE_API_KEY	Server-side only; never in public frontend
-Collection ID	APPWRITE_COLLECTION_USERS	Reference collection via variable
-Attribute / Field	APPWRITE_ATTRIBUTE_EMAIL	Reference attributes for queries or updates
-Function ID	APPWRITE_FUNCTION_CREATE_USER	For function execution in CLI/MCP
-
-Rule: Uppercase, underscores, no spaces. Keep consistent across projects.
-
-3. CLI Rules
-Always reference .env variables for Appwrite CLI commands:
-
-
-4. MCP / Automation Rules
-
-When writing scripts to automate MCP tasks (like seeding data, managing collections, or triggering functions):
-
-Use .env variables everywhere for IDs or attribute names.
-
-Do not expose API keys in scripts shared publicly.
-
-Validate variables before execution:
-
-for var in APPWRITE_PROJECT_ID APPWRITE_API_KEY APPWRITE_COLLECTION_USERS APPWRITE_FUNCTION_CREATE_USER; do
-  if [ -z "${!var}" ]; then
-    echo "Error: $var is not set"
-    exit 1
-  fi
-done
-
-
-Use variables consistently in JSON payloads, filters, and CLI commands.
-
-5. Security Rules
-
-.env files must never be committed to git.
-
-Use separate .env files for local, staging, and production.
-
-Rotate API keys regularly and update .env accordingly.
-
-
-
-
-
-
-
-
-
-
-
-
-Windsurf Rule: Multi-table Save with Transactions
-
-Always create a transaction when saving multiple tables/instances.
-Loop through your data and create each document with the transaction object.
-Commit at the end to apply all changes.
-If any save fails, the transaction rolls back automatically.
-Permissions can be customized per document if needed.
+## SearchableSelectWithAdd Rules
+
+1. **When to use**
+   - Use [SearchableSelectWithAdd](cci:1://file:///c:/Users/USER/Documents/pharmacy/src/components/form/SearchableSelectWithAdd.tsx:14:0-39:2) from  
+     [src/components/form/SearchableSelectWithAdd.tsx](cci:7://file:///c:/Users/USER/Documents/pharmacy/src/components/form/SearchableSelectWithAdd.tsx:0:0-0:0) for any **searchable single-select dropdown that can also create new lookup values with a “+” button**.
+   - Examples: Category, ATC Code, Anatomical, Pharmacological, Dosage Form, Container, Material, Size, Capacity & Volume, Sterility, Usability, Strap, Content.
+
+2. **Component composition**
+   - [SearchableSelectWithAdd](cci:1://file:///c:/Users/USER/Documents/pharmacy/src/components/form/SearchableSelectWithAdd.tsx:14:0-39:2) wraps:
+     - [SearchableSelect](cci:1://file:///c:/Users/USER/Documents/pharmacy/src/components/form/SearchableSelect.tsx:21:0-208:2) for the searchable dropdown.
+     - A small primary **“+” button** on the right.
+   - Props:
+     - Inherits all props from [SearchableSelect](cci:1://file:///c:/Users/USER/Documents/pharmacy/src/components/form/SearchableSelect.tsx:21:0-208:2) (`options`, `placeholder`, `defaultValue`, `value`, `onChange`, `onSearchChange`, etc.).
+     - Extra props:
+       - `onAdd: () => void` – **must open a modal** (no inline creation).
+       - `addButtonLabel?: string` – default `"+"`.
+       - `addButtonDisabled?: boolean`.
+       - `addButtonClassName?: string` – default green primary button styling.
+
+3. **Create-on-the-fly pattern (CRUD in modal)**
+   - `onAdd` must **always** open a modal that follows:
+     - Uses [Modal](cci:1://file:///c:/Users/USER/Documents/pharmacy/src/components/ui/modal/index.tsx:11:0-93:2), `Form`, `Label`, `InputField`, `Button`.
+     - One text field: `description`.
+     - Backend create via Appwrite:
+       - `databases.createDocument(DATABASE_ID, <LOOKUP_COLLECTION_ID>, ID.unique(), { description, status: true })`.
+     - On success:
+       - Prepend new document into the corresponding lookup state list (e.g. `setAtcCodes`, `setMaterialsData`).
+       - Optionally set the selected ID in the parent form (e.g. `setAtcCodeId`, `setMaterials`).
+       - Close the modal.
+     - On validation or error:
+       - Show error text inside the modal (e.g. `Description is required.`, or Appwrite error).
+
+4. **Server-side search pattern**
+   - For collections that need backend search, `onSearchChange` must:
+     - Use a shared handler like [createLookupSearchHandler(collectionId, setList)](cci:1://file:///c:/Users/USER/Documents/pharmacy/src/pages/Products/Products.tsx:302:2-334:4):
+       - Build query array:
+         - `Query.orderDesc("$createdAt")`
+         - `Query.equal("status", true)`
+         - If search term is non-empty:
+           - `Query.contains("description", [searchTerm])`
+         - `Query.limit(20)`
+       - Call `databases.listDocuments(DATABASE_ID, collectionId, queries)`.
+       - Replace the lookup list state with the result.
+   - [SearchableSelect](cci:1://file:///c:/Users/USER/Documents/pharmacy/src/components/form/SearchableSelect.tsx:21:0-208:2) should still keep its local filtering behaviour; server-side search is an enhancement, not a replacement.
+
+5. **Usage guidelines**
+   - **Create modal**:
+     - Small/medium modal size, consistent header text: `"Create <LookupName>"`.
+     - Validate description before calling Appwrite.
+     - Use existing button rules:
+       - Primary create: small, green, consistent hover.
+       - Cancel: small, gray/outline.
+   - **Styling & text size**:
+     - Maintain `text-sm` for inputs, search fields, and dropdown options.
+     - Keep spacing/layout consistent with forms elsewhere in the app.
+   - **Both Create and Edit flows**:
+     - Use [SearchableSelectWithAdd](cci:1://file:///c:/Users/USER/Documents/pharmacy/src/components/form/SearchableSelectWithAdd.tsx:14:0-39:2) in **both** create and edit modals for the same lookup.
+     - In edit modals, you may reuse the same `onAdd` (opens the same create modal) and `onSearchChange`.
+
+6. **Collections mapping**
+   - Each lookup must use its own collection ID and list state:
+     - Category → `CATEGORY_COLLECTION_ID` → `setCategories` / `setCategory`.
+     - ATC Code → `ATC_CODE_COLLECTION_ID` → `setAtcCodes` / `setAtcCodeId`.
+     - Anatomical → `ANATOMICAL_COLLECTION_ID` → `setAnatomicals` / `setAnatomicalId`.
+     - Pharmacological → `PHARMACOLOGICAL_COLLECTION_ID` → `setPharmacologicals` / `setPharmacologicalId`.
+     - Dosage Form → `DOSAGE_FORM_COLLECTION_ID` → `setDosageForms` / `setDosageFormId`.
+     - Container → `CONTAINER_COLLECTION_ID` → `setContainers` / `setContainerId`.
+     - Material → `MATERIAL_COLLECTION_ID` → `setMaterialsData` / `setMaterials`.
+     - Size → `SIZE_COLLECTION_ID` → `setSizesData` / `setSizes`.
+     - Capacity & Volume → `CAPACITY_VOLUME_COLLECTION_ID` → `setCapacityVolumesData` / `setCapacityVolumes`.
+     - Sterility → `STERILITY_COLLECTION_ID` → `setSterilitiesData` / `setSterilities`.
+     - Usability → `USABILITY_COLLECTION_ID` → `setUsabilitiesData` / `setUsabilities`.
+     - Strap → `STRAP_COLLECTION_ID` → `setStrapsData` / `setStraps`.
+     - Content → `CONTENT_COLLECTION_ID` → `setContentsData` / `setContents`.

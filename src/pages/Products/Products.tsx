@@ -14,10 +14,11 @@ import InputField from "../../components/form/input/InputField";
 import Form from "../../components/form/Form";
 import Label from "../../components/form/Label";
 import Checkbox from "../../components/form/input/Checkbox";
-import Select from "../../components/form/Select";
 import { Modal } from "../../components/ui/modal";
 import { useModal } from "../../hooks/useModal";
 import ProductDescriptionDetails from "../../components/DescriptionHooks/ProductDescriptionDetails";
+import Select from "../../components/form/Select";
+import SearchableSelectWithAdd from "../../components/form/SearchableSelectWithAdd";
 
 const databases = new Databases(client);
 const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
@@ -79,6 +80,13 @@ interface Category {
 
 type SimpleRef = Category;
 
+interface LookupCreateConfig {
+  title: string;
+  collectionId: string;
+  setList: (value: SimpleRef[] | ((prev: SimpleRef[]) => SimpleRef[])) => void;
+  setSelectedId?: (value: string | ((prev: string) => string)) => void;
+}
+
 export default function ProductsLanding() {
   const [descriptions, setDescriptions] = useState<ProductDescription[]>([]);
   const [loading, setLoading] = useState(true);
@@ -90,6 +98,8 @@ export default function ProductsLanding() {
   const createModal = useModal(false);
   const editModal = useModal(false);
   const deleteModal = useModal(false);
+  const pharmacologicalCreateModal = useModal(false);
+  const lookupCreateModal = useModal(false);
 
   const [selectedDescription, setSelectedDescription] =
     useState<ProductDescription | null>(null);
@@ -144,6 +154,19 @@ export default function ProductsLanding() {
   const [usabilityNa, setUsabilityNa] = useState(false);
   const [strapNa, setStrapNa] = useState(false);
   const [contentNa, setContentNa] = useState(false);
+
+  const [newPharmacologicalDescription, setNewPharmacologicalDescription] =
+    useState("");
+  const [pharmacologicalFormError, setPharmacologicalFormError] =
+    useState<string | null>(null);
+  const [pharmacologicalSubmitting, setPharmacologicalSubmitting] =
+    useState(false);
+
+  const [lookupCreateConfig, setLookupCreateConfig] =
+    useState<LookupCreateConfig | null>(null);
+  const [newLookupDescription, setNewLookupDescription] = useState("");
+  const [lookupFormError, setLookupFormError] = useState<string | null>(null);
+  const [lookupSubmitting, setLookupSubmitting] = useState(false);
 
   useEffect(() => {
     fetchDescriptions();
@@ -274,6 +297,199 @@ export default function ProductsLanding() {
     }
   };
 
+  const handlePharmacologicalChange = (value: string) => {
+    setPharmacologicalId(value);
+  };
+
+  const createLookupSearchHandler = (
+    collectionId: string,
+    setList: (
+      value: SimpleRef[] | ((prev: SimpleRef[]) => SimpleRef[]),
+    ) => void,
+  ) => {
+    return async (term: string) => {
+      const search = term.trim();
+
+      try {
+        const queries = [
+          Query.orderDesc("$createdAt"),
+          Query.equal("status", true),
+        ];
+
+        if (search) {
+          queries.push(Query.contains("description", [search]));
+        }
+
+        queries.push(Query.limit(20));
+
+        const response = await databases.listDocuments(
+          DATABASE_ID,
+          collectionId,
+          queries,
+        );
+
+        setList(response.documents as unknown as SimpleRef[]);
+      } catch {
+        // ignore lookup search errors
+      }
+    };
+  };
+
+  const handleCategorySearch = createLookupSearchHandler(
+    CATEGORY_COLLECTION_ID,
+    setCategories,
+  );
+  const handleAtcSearch = createLookupSearchHandler(
+    ATC_CODE_COLLECTION_ID,
+    setAtcCodes,
+  );
+  const handleAnatomicalSearch = createLookupSearchHandler(
+    ANATOMICAL_COLLECTION_ID,
+    setAnatomicals,
+  );
+  const handlePharmacologicalSearch = createLookupSearchHandler(
+    PHARMACOLOGICAL_COLLECTION_ID,
+    setPharmacologicals,
+  );
+  const handleDosageFormSearch = createLookupSearchHandler(
+    DOSAGE_FORM_COLLECTION_ID,
+    setDosageForms,
+  );
+  const handleContainerSearch = createLookupSearchHandler(
+    CONTAINER_COLLECTION_ID,
+    setContainers,
+  );
+  const handleMaterialSearch = createLookupSearchHandler(
+    MATERIAL_COLLECTION_ID,
+    setMaterialsData,
+  );
+  const handleSizeSearch = createLookupSearchHandler(
+    SIZE_COLLECTION_ID,
+    setSizesData,
+  );
+  const handleCapacityVolumeSearch = createLookupSearchHandler(
+    CAPACITY_VOLUME_COLLECTION_ID,
+    setCapacityVolumesData,
+  );
+  const handleSterilitySearch = createLookupSearchHandler(
+    STERILITY_COLLECTION_ID,
+    setSterilitiesData,
+  );
+  const handleUsabilitySearch = createLookupSearchHandler(
+    USABILITY_COLLECTION_ID,
+    setUsabilitiesData,
+  );
+  const handleStrapSearch = createLookupSearchHandler(
+    STRAP_COLLECTION_ID,
+    setStrapsData,
+  );
+  const handleContentSearch = createLookupSearchHandler(
+    CONTENT_COLLECTION_ID,
+    setContentsData,
+  );
+
+  const openLookupCreateModal = (config: LookupCreateConfig) => {
+    setLookupCreateConfig(config);
+    setNewLookupDescription("");
+    setLookupFormError(null);
+    lookupCreateModal.openModal();
+  };
+
+  const handleLookupCreateSubmit = async () => {
+    if (!lookupCreateConfig) return;
+
+    if (!newLookupDescription.trim()) {
+      setLookupFormError("Description is required.");
+      return;
+    }
+
+    try {
+      setLookupSubmitting(true);
+      setLookupFormError(null);
+
+      const data: Record<string, unknown> = {
+        description: newLookupDescription.trim(),
+        status: true,
+      };
+
+      const newDoc = await databases.createDocument(
+        DATABASE_ID,
+        lookupCreateConfig.collectionId,
+        ID.unique(),
+        data,
+      );
+
+      lookupCreateConfig.setList((prev) => [
+        newDoc as unknown as SimpleRef,
+        ...prev,
+      ]);
+
+      const newId = (newDoc as { $id?: string }).$id;
+      if (newId && lookupCreateConfig.setSelectedId) {
+        lookupCreateConfig.setSelectedId(newId);
+      }
+
+      lookupCreateModal.closeModal();
+      setLookupCreateConfig(null);
+    } catch (err) {
+      setLookupFormError(
+        err instanceof Error
+          ? err.message
+          : `Failed to create ${lookupCreateConfig.title.toLowerCase()}`,
+      );
+    } finally {
+      setLookupSubmitting(false);
+    }
+  };
+
+  const openPharmacologicalCreateModal = () => {
+    setNewPharmacologicalDescription("");
+    setPharmacologicalFormError(null);
+    pharmacologicalCreateModal.openModal();
+  };
+
+  const handlePharmacologicalCreateSubmit = async () => {
+    if (!newPharmacologicalDescription.trim()) {
+      setPharmacologicalFormError("Description is required.");
+      return;
+    }
+
+    try {
+      setPharmacologicalSubmitting(true);
+      setPharmacologicalFormError(null);
+
+      const data: Record<string, unknown> = {
+        description: newPharmacologicalDescription.trim(),
+        status: true,
+      };
+
+      const newDoc = await databases.createDocument(
+        DATABASE_ID,
+        PHARMACOLOGICAL_COLLECTION_ID,
+        ID.unique(),
+        data,
+      );
+
+      setPharmacologicals((prev) => [
+        newDoc as unknown as SimpleRef,
+        ...prev,
+      ]);
+
+      const newId = (newDoc as { $id?: string }).$id;
+      if (newId) {
+        setPharmacologicalId(newId);
+      }
+
+      pharmacologicalCreateModal.closeModal();
+    } catch (err) {
+      setPharmacologicalFormError(
+        err instanceof Error ? err.message : "Failed to create pharmacological",
+      );
+    } finally {
+      setPharmacologicalSubmitting(false);
+    }
+  };
+
   const resetForm = () => {
     setName("");
     setFormError(null);
@@ -352,6 +568,8 @@ export default function ProductsLanding() {
     createModal.closeModal();
     editModal.closeModal();
     deleteModal.closeModal();
+    pharmacologicalCreateModal.closeModal();
+    lookupCreateModal.closeModal();
     setSelectedDescription(null);
     setFormError(null);
     setSubmitting(false);
@@ -812,7 +1030,7 @@ export default function ProductsLanding() {
                       <Label>ATC Code</Label>
                       <div className="flex items-center gap-3">
                         <div className="flex-1">
-                          <Select
+                          <SearchableSelectWithAdd
                             options={atcCodes.map((code) => ({
                               value: code.$id,
                               label: code.description,
@@ -820,6 +1038,15 @@ export default function ProductsLanding() {
                             placeholder="Select ATC code"
                             defaultValue={atcCodeId}
                             onChange={(value) => setAtcCodeId(value)}
+                            onSearchChange={handleAtcSearch}
+                            onAdd={() =>
+                              openLookupCreateModal({
+                                title: "ATC Code",
+                                collectionId: ATC_CODE_COLLECTION_ID,
+                                setList: setAtcCodes,
+                                setSelectedId: setAtcCodeId,
+                              })
+                            }
                             disabled={atcCodeNa}
                           />
                         </div>
@@ -837,7 +1064,7 @@ export default function ProductsLanding() {
                       <Label>Anatomical</Label>
                       <div className="flex items-center gap-3">
                         <div className="flex-1">
-                          <Select
+                          <SearchableSelectWithAdd
                             options={anatomicals.map((item) => ({
                               value: item.$id,
                               label: item.description,
@@ -845,6 +1072,15 @@ export default function ProductsLanding() {
                             placeholder="Select anatomical"
                             defaultValue={anatomicalId}
                             onChange={(value) => setAnatomicalId(value)}
+                            onSearchChange={handleAnatomicalSearch}
+                            onAdd={() =>
+                              openLookupCreateModal({
+                                title: "Anatomical",
+                                collectionId: ANATOMICAL_COLLECTION_ID,
+                                setList: setAnatomicals,
+                                setSelectedId: setAnatomicalId,
+                              })
+                            }
                             disabled={anatomicalNa}
                           />
                         </div>
@@ -862,14 +1098,17 @@ export default function ProductsLanding() {
                       <Label>Pharmacological</Label>
                       <div className="flex items-center gap-3">
                         <div className="flex-1">
-                          <Select
+                          <SearchableSelectWithAdd
                             options={pharmacologicals.map((item) => ({
                               value: item.$id,
                               label: item.description,
                             }))}
                             placeholder="Select pharmacological"
                             defaultValue={pharmacologicalId}
-                            onChange={(value) => setPharmacologicalId(value)}
+                            onChange={handlePharmacologicalChange}
+                            onSearchChange={handlePharmacologicalSearch}
+                            onAdd={openPharmacologicalCreateModal}
+                            addButtonDisabled={pharmacologicalNa}
                             disabled={pharmacologicalNa}
                           />
                         </div>
@@ -887,7 +1126,7 @@ export default function ProductsLanding() {
                       <Label>Dosage Form</Label>
                       <div className="flex items-center gap-3">
                         <div className="flex-1">
-                          <Select
+                          <SearchableSelectWithAdd
                             options={dosageForms.map((item) => ({
                               value: item.$id,
                               label: item.description,
@@ -895,6 +1134,15 @@ export default function ProductsLanding() {
                             placeholder="Select dosage form"
                             defaultValue={dosageFormId}
                             onChange={(value) => setDosageFormId(value)}
+                            onSearchChange={handleDosageFormSearch}
+                            onAdd={() =>
+                              openLookupCreateModal({
+                                title: "Dosage Form",
+                                collectionId: DOSAGE_FORM_COLLECTION_ID,
+                                setList: setDosageForms,
+                                setSelectedId: setDosageFormId,
+                              })
+                            }
                             disabled={dosageFormNa}
                           />
                         </div>
@@ -912,7 +1160,7 @@ export default function ProductsLanding() {
                       <Label>Container</Label>
                       <div className="flex items-center gap-3">
                         <div className="flex-1">
-                          <Select
+                          <SearchableSelectWithAdd
                             options={containers.map((item) => ({
                               value: item.$id,
                               label: item.description,
@@ -920,6 +1168,15 @@ export default function ProductsLanding() {
                             placeholder="Select container"
                             defaultValue={containerId}
                             onChange={(value) => setContainerId(value)}
+                            onSearchChange={handleContainerSearch}
+                            onAdd={() =>
+                              openLookupCreateModal({
+                                title: "Container",
+                                collectionId: CONTAINER_COLLECTION_ID,
+                                setList: setContainers,
+                                setSelectedId: setContainerId,
+                              })
+                            }
                             disabled={containerNa}
                           />
                         </div>
@@ -947,7 +1204,7 @@ export default function ProductsLanding() {
                       <Label>Material</Label>
                       <div className="flex items-center gap-3">
                         <div className="flex-1">
-                          <Select
+                          <SearchableSelectWithAdd
                             options={materialsData.map((item) => ({
                               value: item.$id,
                               label: item.description,
@@ -955,6 +1212,15 @@ export default function ProductsLanding() {
                             placeholder="Select material"
                             defaultValue={materials}
                             onChange={(value) => setMaterials(value)}
+                            onSearchChange={handleMaterialSearch}
+                            onAdd={() =>
+                              openLookupCreateModal({
+                                title: "Material",
+                                collectionId: MATERIAL_COLLECTION_ID,
+                                setList: setMaterialsData,
+                                setSelectedId: setMaterials,
+                              })
+                            }
                             disabled={materialNa}
                           />
                         </div>
@@ -972,7 +1238,7 @@ export default function ProductsLanding() {
                       <Label>Size</Label>
                       <div className="flex items-center gap-3">
                         <div className="flex-1">
-                          <Select
+                          <SearchableSelectWithAdd
                             options={sizesData.map((item) => ({
                               value: item.$id,
                               label: item.description,
@@ -980,6 +1246,15 @@ export default function ProductsLanding() {
                             placeholder="Select size"
                             defaultValue={sizes}
                             onChange={(value) => setSizes(value)}
+                            onSearchChange={handleSizeSearch}
+                            onAdd={() =>
+                              openLookupCreateModal({
+                                title: "Size",
+                                collectionId: SIZE_COLLECTION_ID,
+                                setList: setSizesData,
+                                setSelectedId: setSizes,
+                              })
+                            }
                             disabled={sizeNa}
                           />
                         </div>
@@ -997,7 +1272,7 @@ export default function ProductsLanding() {
                       <Label>Capacity &amp; Volume</Label>
                       <div className="flex items-center gap-3">
                         <div className="flex-1">
-                          <Select
+                          <SearchableSelectWithAdd
                             options={capacityVolumesData.map((item) => ({
                               value: item.$id,
                               label: item.description,
@@ -1005,6 +1280,15 @@ export default function ProductsLanding() {
                             placeholder="Select capacity &amp; volume"
                             defaultValue={capacityVolumes}
                             onChange={(value) => setCapacityVolumes(value)}
+                            onSearchChange={handleCapacityVolumeSearch}
+                            onAdd={() =>
+                              openLookupCreateModal({
+                                title: "Capacity & Volume",
+                                collectionId: CAPACITY_VOLUME_COLLECTION_ID,
+                                setList: setCapacityVolumesData,
+                                setSelectedId: setCapacityVolumes,
+                              })
+                            }
                             disabled={capacityVolumeNa}
                           />
                         </div>
@@ -1022,7 +1306,7 @@ export default function ProductsLanding() {
                       <Label>Sterility</Label>
                       <div className="flex items-center gap-3">
                         <div className="flex-1">
-                          <Select
+                          <SearchableSelectWithAdd
                             options={sterilitiesData.map((item) => ({
                               value: item.$id,
                               label: item.description,
@@ -1030,6 +1314,15 @@ export default function ProductsLanding() {
                             placeholder="Select sterility"
                             defaultValue={sterilities}
                             onChange={(value) => setSterilities(value)}
+                            onSearchChange={handleSterilitySearch}
+                            onAdd={() =>
+                              openLookupCreateModal({
+                                title: "Sterility",
+                                collectionId: STERILITY_COLLECTION_ID,
+                                setList: setSterilitiesData,
+                                setSelectedId: setSterilities,
+                              })
+                            }
                             disabled={sterilityNa}
                           />
                         </div>
@@ -1047,7 +1340,7 @@ export default function ProductsLanding() {
                       <Label>Usability</Label>
                       <div className="flex items-center gap-3">
                         <div className="flex-1">
-                          <Select
+                          <SearchableSelectWithAdd
                             options={usabilitiesData.map((item) => ({
                               value: item.$id,
                               label: item.description,
@@ -1055,6 +1348,15 @@ export default function ProductsLanding() {
                             placeholder="Select usability"
                             defaultValue={usabilities}
                             onChange={(value) => setUsabilities(value)}
+                            onSearchChange={handleUsabilitySearch}
+                            onAdd={() =>
+                              openLookupCreateModal({
+                                title: "Usability",
+                                collectionId: USABILITY_COLLECTION_ID,
+                                setList: setUsabilitiesData,
+                                setSelectedId: setUsabilities,
+                              })
+                            }
                             disabled={usabilityNa}
                           />
                         </div>
@@ -1072,7 +1374,7 @@ export default function ProductsLanding() {
                       <Label>Strap</Label>
                       <div className="flex items-center gap-3">
                         <div className="flex-1">
-                          <Select
+                          <SearchableSelectWithAdd
                             options={strapsData.map((item) => ({
                               value: item.$id,
                               label: item.description,
@@ -1080,6 +1382,15 @@ export default function ProductsLanding() {
                             placeholder="Select strap"
                             defaultValue={straps}
                             onChange={(value) => setStraps(value)}
+                            onSearchChange={handleStrapSearch}
+                            onAdd={() =>
+                              openLookupCreateModal({
+                                title: "Strap",
+                                collectionId: STRAP_COLLECTION_ID,
+                                setList: setStrapsData,
+                                setSelectedId: setStraps,
+                              })
+                            }
                             disabled={strapNa}
                           />
                         </div>
@@ -1097,7 +1408,7 @@ export default function ProductsLanding() {
                       <Label>Content</Label>
                       <div className="flex items-center gap-3">
                         <div className="flex-1">
-                          <Select
+                          <SearchableSelectWithAdd
                             options={contentsData.map((item) => ({
                               value: item.$id,
                               label: item.description,
@@ -1105,6 +1416,15 @@ export default function ProductsLanding() {
                             placeholder="Select content"
                             defaultValue={contents}
                             onChange={(value) => setContents(value)}
+                            onSearchChange={handleContentSearch}
+                            onAdd={() =>
+                              openLookupCreateModal({
+                                title: "Content",
+                                collectionId: CONTENT_COLLECTION_ID,
+                                setList: setContentsData,
+                                setSelectedId: setContents,
+                              })
+                            }
                             disabled={contentNa}
                           />
                         </div>
@@ -1151,6 +1471,124 @@ export default function ProductsLanding() {
       </Modal>
 
       <Modal
+        isOpen={pharmacologicalCreateModal.isOpen}
+        onClose={pharmacologicalCreateModal.closeModal}
+        className="max-w-md w-full p-6"
+      >
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            Create Pharmacological
+          </h2>
+          <Form
+            onSubmit={() => {
+              handlePharmacologicalCreateSubmit();
+            }}
+            className="space-y-4"
+          >
+            <div className="space-y-2">
+              <Label htmlFor="pharmacological-description">
+                Description
+              </Label>
+              <InputField
+                id="pharmacological-description"
+                type="text"
+                value={newPharmacologicalDescription}
+                onChange={(
+                  e: React.ChangeEvent<HTMLInputElement>,
+                ) => setNewPharmacologicalDescription(e.target.value)}
+                placeholder="Enter pharmacological description"
+              />
+            </div>
+
+            {pharmacologicalFormError && (
+              <p className="text-sm text-error-500">
+                {pharmacologicalFormError}
+              </p>
+            )}
+
+            <div className="flex justify-end gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={pharmacologicalCreateModal.closeModal}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                variant="primary"
+                className="bg-green-600 hover:bg-green-700"
+                type="submit"
+                disabled={pharmacologicalSubmitting}
+              >
+                Save
+              </Button>
+            </div>
+          </Form>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={lookupCreateModal.isOpen}
+        onClose={lookupCreateModal.closeModal}
+        className="max-w-md w-full p-6"
+      >
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            {lookupCreateConfig?.title
+              ? `Create ${lookupCreateConfig.title}`
+              : "Create Item"}
+          </h2>
+          <Form
+            onSubmit={() => {
+              handleLookupCreateSubmit();
+            }}
+            className="space-y-4"
+          >
+            <div className="space-y-2">
+              <Label htmlFor="lookup-description">
+                Description
+              </Label>
+              <InputField
+                id="lookup-description"
+                type="text"
+                value={newLookupDescription}
+                onChange={(
+                  e: React.ChangeEvent<HTMLInputElement>,
+                ) => setNewLookupDescription(e.target.value)}
+                placeholder="Enter description"
+              />
+            </div>
+
+            {lookupFormError && (
+              <p className="text-sm text-error-500">
+                {lookupFormError}
+              </p>
+            )}
+
+            <div className="flex justify-end gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={lookupCreateModal.closeModal}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                variant="primary"
+                className="bg-green-600 hover:bg-green-700"
+                type="submit"
+                disabled={lookupSubmitting}
+              >
+                Save
+              </Button>
+            </div>
+          </Form>
+        </div>
+      </Modal>
+
+      <Modal
         isOpen={editModal.isOpen}
         onClose={closeAllModals}
         className="max-w-7xl w-full p-6"
@@ -1183,7 +1621,7 @@ export default function ProductsLanding() {
               {categoriesLoading ? (
                 <p className="text-xs text-gray-500">Loading categories...</p>
               ) : (
-                <Select
+                <SearchableSelectWithAdd
                   key={selectedDescription?.$id ?? "edit-category"}
                   options={categories.map((cat) => ({
                     value: cat.$id,
@@ -1192,6 +1630,8 @@ export default function ProductsLanding() {
                   placeholder="Select category"
                   defaultValue={category}
                   onChange={(value) => setCategory(value)}
+                  onSearchChange={handleCategorySearch}
+                  onAdd={() => {}}
                 />
               )}
             </div>
@@ -1207,7 +1647,7 @@ export default function ProductsLanding() {
                       <Label>ATC Code</Label>
                       <div className="flex items-center gap-3">
                         <div className="flex-1">
-                          <Select
+                          <SearchableSelectWithAdd
                             key={selectedDescription?.$id ?? "edit-atc-code"}
                             options={atcCodes.map((code) => ({
                               value: code.$id,
@@ -1216,6 +1656,8 @@ export default function ProductsLanding() {
                             placeholder="Select ATC code"
                             defaultValue={atcCodeId}
                             onChange={(value) => setAtcCodeId(value)}
+                            onSearchChange={handleAtcSearch}
+                            onAdd={() => {}}
                             disabled={atcCodeNa}
                           />
                         </div>
@@ -1233,7 +1675,7 @@ export default function ProductsLanding() {
                       <Label>Anatomical</Label>
                       <div className="flex items-center gap-3">
                         <div className="flex-1">
-                          <Select
+                          <SearchableSelectWithAdd
                             key={selectedDescription?.$id ?? "edit-anatomical"}
                             options={anatomicals.map((item) => ({
                               value: item.$id,
@@ -1242,6 +1684,8 @@ export default function ProductsLanding() {
                             placeholder="Select anatomical"
                             defaultValue={anatomicalId}
                             onChange={(value) => setAnatomicalId(value)}
+                            onSearchChange={handleAnatomicalSearch}
+                            onAdd={() => {}}
                             disabled={anatomicalNa}
                           />
                         </div>
@@ -1259,7 +1703,7 @@ export default function ProductsLanding() {
                       <Label>Pharmacological</Label>
                       <div className="flex items-center gap-3">
                         <div className="flex-1">
-                          <Select
+                          <SearchableSelectWithAdd
                             key={selectedDescription?.$id ?? "edit-pharmacological"}
                             options={pharmacologicals.map((item) => ({
                               value: item.$id,
@@ -1268,6 +1712,9 @@ export default function ProductsLanding() {
                             placeholder="Select pharmacological"
                             defaultValue={pharmacologicalId}
                             onChange={(value) => setPharmacologicalId(value)}
+                            onSearchChange={handlePharmacologicalSearch}
+                            onAdd={openPharmacologicalCreateModal}
+                            addButtonDisabled={pharmacologicalNa}
                             disabled={pharmacologicalNa}
                           />
                         </div>
@@ -1285,7 +1732,7 @@ export default function ProductsLanding() {
                       <Label>Dosage Form</Label>
                       <div className="flex items-center gap-3">
                         <div className="flex-1">
-                          <Select
+                          <SearchableSelectWithAdd
                             key={selectedDescription?.$id ?? "edit-dosage-form"}
                             options={dosageForms.map((item) => ({
                               value: item.$id,
@@ -1294,6 +1741,8 @@ export default function ProductsLanding() {
                             placeholder="Select dosage form"
                             defaultValue={dosageFormId}
                             onChange={(value) => setDosageFormId(value)}
+                            onSearchChange={handleDosageFormSearch}
+                            onAdd={() => {}}
                             disabled={dosageFormNa}
                           />
                         </div>
@@ -1311,7 +1760,7 @@ export default function ProductsLanding() {
                       <Label>Container</Label>
                       <div className="flex items-center gap-3">
                         <div className="flex-1">
-                          <Select
+                          <SearchableSelectWithAdd
                             key={selectedDescription?.$id ?? "edit-container"}
                             options={containers.map((item) => ({
                               value: item.$id,
@@ -1320,6 +1769,8 @@ export default function ProductsLanding() {
                             placeholder="Select container"
                             defaultValue={containerId}
                             onChange={(value) => setContainerId(value)}
+                            onSearchChange={handleContainerSearch}
+                            onAdd={() => {}}
                             disabled={containerNa}
                           />
                         </div>
@@ -1347,7 +1798,7 @@ export default function ProductsLanding() {
                       <Label>Material</Label>
                       <div className="flex items-center gap-3">
                         <div className="flex-1">
-                          <Select
+                          <SearchableSelectWithAdd
                             key={selectedDescription?.$id ?? "edit-material"}
                             options={materialsData.map((item) => ({
                               value: item.$id,
@@ -1356,6 +1807,8 @@ export default function ProductsLanding() {
                             placeholder="Select material"
                             defaultValue={materials}
                             onChange={(value) => setMaterials(value)}
+                            onSearchChange={handleMaterialSearch}
+                            onAdd={() => {}}
                             disabled={materialNa}
                           />
                         </div>
@@ -1373,7 +1826,7 @@ export default function ProductsLanding() {
                       <Label>Size</Label>
                       <div className="flex items-center gap-3">
                         <div className="flex-1">
-                          <Select
+                          <SearchableSelectWithAdd
                             key={selectedDescription?.$id ?? "edit-size"}
                             options={sizesData.map((item) => ({
                               value: item.$id,
@@ -1382,6 +1835,8 @@ export default function ProductsLanding() {
                             placeholder="Select size"
                             defaultValue={sizes}
                             onChange={(value) => setSizes(value)}
+                            onSearchChange={handleSizeSearch}
+                            onAdd={() => {}}
                             disabled={sizeNa}
                           />
                         </div>
@@ -1399,7 +1854,7 @@ export default function ProductsLanding() {
                       <Label>Capacity &amp; Volume</Label>
                       <div className="flex items-center gap-3">
                         <div className="flex-1">
-                          <Select
+                          <SearchableSelectWithAdd
                             key={selectedDescription?.$id ?? "edit-capacity-volume"}
                             options={capacityVolumesData.map((item) => ({
                               value: item.$id,
@@ -1408,6 +1863,8 @@ export default function ProductsLanding() {
                             placeholder="Select capacity &amp; volume"
                             defaultValue={capacityVolumes}
                             onChange={(value) => setCapacityVolumes(value)}
+                            onSearchChange={handleCapacityVolumeSearch}
+                            onAdd={() => {}}
                             disabled={capacityVolumeNa}
                           />
                         </div>
@@ -1425,7 +1882,7 @@ export default function ProductsLanding() {
                       <Label>Sterility</Label>
                       <div className="flex items-center gap-3">
                         <div className="flex-1">
-                          <Select
+                          <SearchableSelectWithAdd
                             key={selectedDescription?.$id ?? "edit-sterility"}
                             options={sterilitiesData.map((item) => ({
                               value: item.$id,
@@ -1434,6 +1891,8 @@ export default function ProductsLanding() {
                             placeholder="Select sterility"
                             defaultValue={sterilities}
                             onChange={(value) => setSterilities(value)}
+                            onSearchChange={handleSterilitySearch}
+                            onAdd={() => {}}
                             disabled={sterilityNa}
                           />
                         </div>
@@ -1451,7 +1910,7 @@ export default function ProductsLanding() {
                       <Label>Usability</Label>
                       <div className="flex items-center gap-3">
                         <div className="flex-1">
-                          <Select
+                          <SearchableSelectWithAdd
                             key={selectedDescription?.$id ?? "edit-usability"}
                             options={usabilitiesData.map((item) => ({
                               value: item.$id,
@@ -1460,6 +1919,8 @@ export default function ProductsLanding() {
                             placeholder="Select usability"
                             defaultValue={usabilities}
                             onChange={(value) => setUsabilities(value)}
+                            onSearchChange={handleUsabilitySearch}
+                            onAdd={() => {}}
                             disabled={usabilityNa}
                           />
                         </div>
@@ -1477,7 +1938,7 @@ export default function ProductsLanding() {
                       <Label>Strap</Label>
                       <div className="flex items-center gap-3">
                         <div className="flex-1">
-                          <Select
+                          <SearchableSelectWithAdd
                             key={selectedDescription?.$id ?? "edit-strap"}
                             options={strapsData.map((item) => ({
                               value: item.$id,
@@ -1486,6 +1947,8 @@ export default function ProductsLanding() {
                             placeholder="Select strap"
                             defaultValue={straps}
                             onChange={(value) => setStraps(value)}
+                            onSearchChange={handleStrapSearch}
+                            onAdd={() => {}}
                             disabled={strapNa}
                           />
                         </div>
@@ -1503,7 +1966,7 @@ export default function ProductsLanding() {
                       <Label>Content</Label>
                       <div className="flex items-center gap-3">
                         <div className="flex-1">
-                          <Select
+                          <SearchableSelectWithAdd
                             key={selectedDescription?.$id ?? "edit-content"}
                             options={contentsData.map((item) => ({
                               value: item.$id,
@@ -1512,6 +1975,8 @@ export default function ProductsLanding() {
                             placeholder="Select content"
                             defaultValue={contents}
                             onChange={(value) => setContents(value)}
+                            onSearchChange={handleContentSearch}
+                            onAdd={() => {}}
                             disabled={contentNa}
                           />
                         </div>
