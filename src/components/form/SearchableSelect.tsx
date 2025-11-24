@@ -4,6 +4,7 @@ import InputField from "./input/InputField";
 interface SearchableSelectOption {
   value: string;
   label: string;
+  data?: unknown;
 }
 
 interface SearchableSelectProps {
@@ -17,6 +18,13 @@ interface SearchableSelectProps {
   className?: string;
   noOptionsText?: string;
   onSearchChange?: (term: string) => void;
+   renderOption?: (
+    option: SearchableSelectOption,
+    isSelected: boolean,
+  ) => React.ReactNode;
+  renderSelected?: (
+    option: SearchableSelectOption | undefined,
+  ) => React.ReactNode;
 }
 
 const SearchableSelect: React.FC<SearchableSelectProps> = ({
@@ -30,6 +38,8 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
   className = "",
   noOptionsText = "No options found",
   onSearchChange,
+  renderOption,
+  renderSelected,
 }) => {
   const isControlled = value !== undefined;
 
@@ -76,10 +86,12 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
     );
   }, [options, searchTerm]);
 
-  const selectedOptionLabel = useMemo(() => {
-    if (!selectedValue) return "";
-    return options.find((option) => option.value === selectedValue)?.label ?? "";
-  }, [options, selectedValue]);
+  const selectedOption = useMemo(
+    () => options.find((option) => option.value === selectedValue),
+    [options, selectedValue],
+  );
+
+  const selectedOptionLabel = selectedOption?.label ?? "";
 
   const toggleDropdown = () => {
     if (disabled) return;
@@ -143,7 +155,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
               : "text-gray-400 dark:text-gray-400"
           }`}
         >
-          {displayText}
+          {renderSelected ? renderSelected(selectedOption) : displayText}
         </span>
         <span className="ml-2 flex h-5 w-5 items-center justify-center text-gray-500 dark:text-gray-400">
           <svg
@@ -196,7 +208,11 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
                       isSelected ? "bg-primary/10 text-primary-600" : ""
                     }`}
                   >
-                    <span className="truncate">{option.label}</span>
+                    {renderOption ? (
+                      renderOption(option, isSelected)
+                    ) : (
+                      <span className="truncate">{option.label}</span>
+                    )}
                   </div>
                 );
               })

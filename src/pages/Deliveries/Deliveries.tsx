@@ -190,6 +190,39 @@ export default function Deliveries() {
     }
   };
 
+  const handleProductSearch = async (term: string) => {
+    const search = term.trim();
+
+    if (!search) {
+      await fetchProducts();
+      return;
+    }
+
+    try {
+      setProductsLoading(true);
+      setProductsError(null);
+
+      const res = await databases.listDocuments(
+        DATABASE_ID,
+        PRODUCT_DESCRIPTIONS_COLLECTION_ID,
+        [
+          Query.orderDesc("$createdAt"),
+          Query.equal("status", true),
+          Query.contains("name", [search]),
+          Query.limit(20),
+        ],
+      );
+
+      setProducts(res.documents as unknown as ProductDescription[]);
+    } catch (err) {
+      setProductsError(
+        err instanceof Error ? err.message : "Failed to search products",
+      );
+    } finally {
+      setProductsLoading(false);
+    }
+  };
+
   const fetchCategories = async () => {
     try {
       const res = await databases.listDocuments(
@@ -863,6 +896,7 @@ export default function Deliveries() {
             formError={formError}
             onAddItem={handleAddItem}
             onRemoveItem={handleRemoveItem}
+            onProductSearch={handleProductSearch}
             onSubmit={handleCreateSubmit}
             onCancel={closeAllModals}
             submitting={submitting}
@@ -931,6 +965,7 @@ export default function Deliveries() {
             formError={formError}
             onAddItem={handleAddItem}
             onRemoveItem={handleRemoveItem}
+            onProductSearch={handleProductSearch}
             onSubmit={handleEditSubmit}
             onCancel={closeAllModals}
             submitting={submitting}
@@ -1215,12 +1250,13 @@ interface DeliveryFormProps {
   formError: string | null;
   onAddItem: () => void;
   onRemoveItem: (index: number) => void;
+  onProductSearch: (term: string) => void;
   onSubmit: () => void;
   onCancel: () => void;
   submitting: boolean;
 }
 
-function DeliveryForm(props: DeliveryFormProps) {
+const DeliveryForm: React.FC<DeliveryFormProps> = (props) => {
   const {
     mode,
     deliveryReceiptNo,
@@ -1272,23 +1308,11 @@ function DeliveryForm(props: DeliveryFormProps) {
     formError,
     onAddItem,
     onRemoveItem,
+    onProductSearch,
     onSubmit,
     onCancel,
     submitting,
   } = props;
-
-  const selectedProduct =
-    products.find((p) => p.$id === itemProductId) ?? null;
-
-  const [isProductDropdownOpen, setIsProductDropdownOpen] = useState(false);
-  const [productSearch, setProductSearch] = useState("");
-
-  const normalizedProductSearch = productSearch.trim().toLowerCase();
-  const filteredProducts = normalizedProductSearch
-    ? products.filter((p) =>
-        p.name.toLowerCase().includes(normalizedProductSearch),
-      )
-    : products;
 
   return (
     <Form
@@ -1345,86 +1369,66 @@ function DeliveryForm(props: DeliveryFormProps) {
         <div className="grid grid-cols-1 gap-3 md:grid-cols-12 items-end">
           <div className="md:col-span-4">
             <Label>Product</Label>
-            <div className="relative">
-              <div
-                className="flex w-full cursor-pointer items-center justify-between rounded-lg border border-gray-300 bg-transparent px-3 py-2.5 text-left text-sm shadow-theme-xs focus-within:border-brand-300 focus-within:ring-3 focus-within:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900"
-                onClick={() => {
-                  if (!productsLoading) {
-                    setIsProductDropdownOpen((prev) => !prev);
-                  }
-                }}
-              >
-                {selectedProduct ? (
-                  <div className="flex-1 min-w-0">
-                    <ProductDescriptionDetails
-                      record={selectedProduct as any}
-                      categories={categories}
-                      materials={materialsData}
-                      sizes={sizesData}
-                      capacityVolumes={capacityVolumesData}
-                      sterilities={sterilitiesData}
-                      usabilities={usabilitiesData}
-                      straps={strapsData}
-                      contents={contentsData}
-                      dosageForms={dosageForms}
-                      containers={containers}
-                      className="text-xs text-gray-700 dark:text-gray-200"
-                    />
-                  </div>
-                ) : (
-                  <span className="text-xs text-gray-400">
-                    {productsLoading ? "Loading products..." : "Select product"}
-                  </span>
-                )}
-                <span className="ml-2 text-gray-400 text-xs">▾</span>
-              </div>
-              {isProductDropdownOpen && !productsLoading && (
-                <div className="absolute left-0 right-0 z-40 mt-1 max-h-64 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
-                  <div className="border-b border-gray-200 bg-gray-50 p-2 dark:border-gray-800 dark:bg-gray-950">
-                    <InputField
-                      id="delivery-product-search"
-                      type="text"
-                      value={productSearch}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                        setProductSearch(e.target.value)
-                      }
-                      placeholder="Search product..."
-                    />
-                  </div>
-                  {filteredProducts.length > 0 ? (
-                    filteredProducts.map((product) => (
-                      <div
-                        key={product.$id}
-                        className="w-full cursor-pointer px-3 py-2 text-left hover:bg-primary/5"
-                        onClick={() => {
-                          setItemProductId(product.$id);
-                          setIsProductDropdownOpen(false);
-                        }}
-                      >
-                        <ProductDescriptionDetails
-                          record={product as any}
-                          categories={categories}
-                          materials={materialsData}
-                          sizes={sizesData}
-                          capacityVolumes={capacityVolumesData}
-                          sterilities={sterilitiesData}
-                          usabilities={usabilitiesData}
-                          straps={strapsData}
-                          contents={contentsData}
-                          dosageForms={dosageForms}
-                          containers={containers}
-                          className="text-xs text-gray-700 dark:text-gray-200"
-                        />
-                      </div>
-                    ))
-                  ) : (
-                    <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
-                      No products found
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+            <SearchableSelect
+              options={products.map((product) => ({
+                value: product.$id,
+                label: product.name,
+                data: product,
+              }))}
+              placeholder={
+                productsLoading ? "Loading products..." : "Select product"
+              }
+              defaultValue={itemProductId}
+              onChange={(value) => setItemProductId(value)}
+              onSearchChange={onProductSearch}
+              renderSelected={(option) => {
+                if (!option || !option.data) {
+                  return productsLoading ? "Loading products..." : "Select product";
+                }
+
+                const product = option.data as ProductDescription;
+
+                return (
+                  <ProductDescriptionDetails
+                    record={product as any}
+                    categories={categories}
+                    materials={materialsData}
+                    sizes={sizesData}
+                    capacityVolumes={capacityVolumesData}
+                    sterilities={sterilitiesData}
+                    usabilities={usabilitiesData}
+                    straps={strapsData}
+                    contents={contentsData}
+                    dosageForms={dosageForms}
+                    containers={containers}
+                    className="text-xs text-gray-700 dark:text-gray-200"
+                  />
+                );
+              }}
+              renderOption={(option) => {
+                if (!option.data) return <span className="truncate">{option.label}</span>;
+
+                const product = option.data as ProductDescription;
+
+                return (
+                  <ProductDescriptionDetails
+                    record={product as any}
+                    categories={categories}
+                    materials={materialsData}
+                    sizes={sizesData}
+                    capacityVolumes={capacityVolumesData}
+                    sterilities={sterilitiesData}
+                    usabilities={usabilitiesData}
+                    straps={strapsData}
+                    contents={contentsData}
+                    dosageForms={dosageForms}
+                    containers={containers}
+                    className="text-xs text-gray-700 dark:text-gray-200"
+                  />
+                );
+              }}
+              disabled={productsLoading}
+            />
           </div>
           
           <div className="md:col-span-3">
@@ -1712,4 +1716,4 @@ function DeliveryForm(props: DeliveryFormProps) {
       </div>
     </Form>
   );
-}
+};
