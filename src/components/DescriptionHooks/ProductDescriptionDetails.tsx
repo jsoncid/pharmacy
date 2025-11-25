@@ -15,6 +15,8 @@ interface ProductDescriptionRecord {
   contents?: string;
   dosageForms?: string;
   containers?: string;
+  unitDoses?: string;
+  dosage_strenght?: number;
 }
 
 interface ProductDescriptionDetailsProps {
@@ -29,6 +31,7 @@ interface ProductDescriptionDetailsProps {
   contents: SimpleRef[];
   dosageForms: SimpleRef[];
   containers: SimpleRef[];
+  unitDoses?: SimpleRef[];
   className?: string;
 }
 
@@ -44,6 +47,7 @@ const ProductDescriptionDetails = ({
   contents,
   dosageForms,
   containers,
+  unitDoses = [],
   className = "",
 }: ProductDescriptionDetailsProps) => {
   const materialLabel =
@@ -80,6 +84,14 @@ const ProductDescriptionDetails = ({
   const containerLabel =
     record.containers &&
     containers.find((item) => item.$id === record.containers)?.description;
+
+  const unitDoseLabel =
+    record.unitDoses &&
+    unitDoses.find((item) => item.$id === record.unitDoses)?.description;
+
+  const hasDosageStrength =
+    record.dosage_strenght !== undefined &&
+    record.dosage_strenght !== null;
 
   const categoryLabel =
     record.categories &&
@@ -132,6 +144,20 @@ const ProductDescriptionDetails = ({
           Contents: {contentLabel}
         </span>
       )}
+
+      {hasDosageStrength && (
+        <span className="text-xs text-gray-500 dark:text-gray-400">
+          Dosage strength: {record.dosage_strenght}
+        </span>
+      )}
+      {unitDoseLabel && (
+        <span className="text-xs text-gray-500 dark:text-gray-400">
+          Unit dose: {unitDoseLabel}
+        </span>
+      )}
+
+
+      
       {dosageFormLabel && (
         <span className="text-xs text-gray-500 dark:text-gray-400">
           Dosage form: {dosageFormLabel}
@@ -142,6 +168,8 @@ const ProductDescriptionDetails = ({
           Container: {containerLabel}
         </span>
       )}
+      
+      
     </div>
   );
 };

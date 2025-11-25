@@ -36,6 +36,7 @@ import Pharmacologicals from "./pages/Products/DrugTechnicalDescriptions/Pharmac
 import Categories from "./pages/Products/Categories";
 import DosageForms from "./pages/Products/DrugTechnicalDescriptions/DosageForms";
 import Containers from "./pages/Products/DrugTechnicalDescriptions/Containers";
+import UnitDoses from "./pages/Products/DrugTechnicalDescriptions/UnitDoses";
 import Materials from "./pages/Products/MedicalSuppliesTechnicalDescriptions/Materials";
 import Sizes from "./pages/Products/MedicalSuppliesTechnicalDescriptions/Sizes";
 import CapacityVolumes from "./pages/Products/MedicalSuppliesTechnicalDescriptions/CapacityVolumes";
@@ -194,6 +195,7 @@ function AppContent() {
           <Route path="/products/drug_technical_descriptions/therapeutics" element={<Therapeutics />} />
           <Route path="/products/drug_technical_descriptions/pharmacologicals" element={<Pharmacologicals />} />
           <Route path="/products/drug_technical_descriptions/dossage_forms" element={<DosageForms />} />
+          <Route path="/products/drug_technical_descriptions/unit_doses" element={<UnitDoses />} />
           <Route path="/products/drug_technical_descriptions/containers" element={<Containers />} />
 
           {/* Others Page */}

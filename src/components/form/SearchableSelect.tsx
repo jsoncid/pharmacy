@@ -135,7 +135,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
   return (
     <div className={`relative w-full ${className}`} ref={containerRef}>
       <div
-        className={`flex h-11 w-full cursor-pointer items-center justify-between rounded-lg border px-4 py-2.5 text-sm shadow-theme-xs focus-within:outline-hidden focus-within:ring-3 focus-within:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 ${
+        className={`flex min-h-[2.75rem] w-full cursor-pointer items-center justify-between rounded-lg border px-4 py-2.5 text-sm shadow-theme-xs focus-within:outline-hidden focus-within:ring-3 focus-within:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 ${
           disabled
             ? "cursor-not-allowed border-gray-300 bg-gray-100 text-gray-500 opacity-40 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"
             : "border-gray-300 bg-transparent text-gray-800 focus:border-brand-300 dark:border-gray-700 dark:focus:border-brand-800"

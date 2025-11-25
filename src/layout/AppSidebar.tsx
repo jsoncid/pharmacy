@@ -104,6 +104,7 @@ const AppSidebar: React.FC = () => {
           name: "Drugs & Medicine Specifications",
           subItems: [
             { name: "Dossage & Forms", path: "/products/drug_technical_descriptions/dossage_forms" },
+            { name: "Unit Doses", path: "/products/drug_technical_descriptions/unit_doses" },
             { name: "Containers", path: "/products/drug_technical_descriptions/containers" },
             { name: "ATC Codes", path: "/products/drug_technical_descriptions/atc_codes" },
             { name: "Anatomicals", path: "/products/drug_technical_descriptions/anatomicals" },

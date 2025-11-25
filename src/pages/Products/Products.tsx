@@ -18,6 +18,7 @@ import { Modal } from "../../components/ui/modal";
 import { useModal } from "../../hooks/useModal";
 import ProductDescriptionDetails from "../../components/DescriptionHooks/ProductDescriptionDetails";
 import Select from "../../components/form/Select";
+import SearchableSelect from "../../components/form/SearchableSelect";
 import SearchableSelectWithAdd from "../../components/form/SearchableSelectWithAdd";
 
 const databases = new Databases(client);
@@ -49,6 +50,8 @@ const CONTENT_COLLECTION_ID =
   import.meta.env.VITE_APPWRITE_COLLECTION_CONTENTS;
 const STRAP_COLLECTION_ID =
   import.meta.env.VITE_APPWRITE_COLLECTION_STRAPS;
+const UNIT_DOSE_COLLECTION_ID =
+  import.meta.env.VITE_APPWRITE_COLLECTION_UNIT_DOSES;
 
 interface ProductDescription {
   $id: string;
@@ -62,6 +65,8 @@ interface ProductDescription {
   anatomicals?: string;
   pharmacologicals?: string;
   dosageForms?: string;
+  unitDoses?: string;
+  dosage_strenght?: number;
   materials?: string;
   sizes?: string;
   capacityVolumes?: string;
@@ -118,6 +123,7 @@ export default function ProductsLanding() {
   const [anatomicals, setAnatomicals] = useState<SimpleRef[]>([]);
   const [pharmacologicals, setPharmacologicals] = useState<SimpleRef[]>([]);
   const [dosageForms, setDosageForms] = useState<SimpleRef[]>([]);
+  const [unitDoses, setUnitDoses] = useState<SimpleRef[]>([]);
   const [materialsData, setMaterialsData] = useState<SimpleRef[]>([]);
   const [sizesData, setSizesData] = useState<SimpleRef[]>([]);
   const [capacityVolumesData, setCapacityVolumesData] = useState<SimpleRef[]>([]);
@@ -131,6 +137,8 @@ export default function ProductsLanding() {
   const [anatomicalId, setAnatomicalId] = useState("");
   const [pharmacologicalId, setPharmacologicalId] = useState("");
   const [dosageFormId, setDosageFormId] = useState("");
+  const [unitDoseId, setUnitDoseId] = useState("");
+  const [dosageStrenght, setDosageStrenght] = useState("");
   const [materials, setMaterials] = useState("");
   const [sizes, setSizes] = useState("");
   const [capacityVolumes, setCapacityVolumes] = useState("");
@@ -140,20 +148,19 @@ export default function ProductsLanding() {
   const [contents, setContents] = useState("");
 
   // N/A toggles for Drugs Technical Descriptions
-  const [atcCodeNa, setAtcCodeNa] = useState(false);
-  const [anatomicalNa, setAnatomicalNa] = useState(false);
-  const [pharmacologicalNa, setPharmacologicalNa] = useState(false);
-  const [dosageFormNa, setDosageFormNa] = useState(false);
-  const [containerNa, setContainerNa] = useState(false);
+  const [atcCodeNa, setAtcCodeNa] = useState(true);
+  const [anatomicalNa, setAnatomicalNa] = useState(true);
+  const [pharmacologicalNa, setPharmacologicalNa] = useState(true);
+  const [containerNa, setContainerNa] = useState(true);
 
   // N/A toggles for Medical Supply Technical Descriptions
-  const [materialNa, setMaterialNa] = useState(false);
-  const [sizeNa, setSizeNa] = useState(false);
-  const [capacityVolumeNa, setCapacityVolumeNa] = useState(false);
-  const [sterilityNa, setSterilityNa] = useState(false);
-  const [usabilityNa, setUsabilityNa] = useState(false);
-  const [strapNa, setStrapNa] = useState(false);
-  const [contentNa, setContentNa] = useState(false);
+  const [materialNa, setMaterialNa] = useState(true);
+  const [sizeNa, setSizeNa] = useState(true);
+  const [capacityVolumeNa, setCapacityVolumeNa] = useState(true);
+  const [sterilityNa, setSterilityNa] = useState(true);
+  const [usabilityNa, setUsabilityNa] = useState(true);
+  const [strapNa, setStrapNa] = useState(true);
+  const [contentNa, setContentNa] = useState(true);
 
   const [newPharmacologicalDescription, setNewPharmacologicalDescription] =
     useState("");
@@ -246,6 +253,7 @@ export default function ProductsLanding() {
         anatomicalsRes,
         pharmacologicalsRes,
         dosageFormsRes,
+        unitDosesRes,
         materialsRes,
         sizesRes,
         capacityVolumesRes,
@@ -263,6 +271,7 @@ export default function ProductsLanding() {
           queries,
         ),
         databases.listDocuments(DATABASE_ID, DOSAGE_FORM_COLLECTION_ID, queries),
+        databases.listDocuments(DATABASE_ID, UNIT_DOSE_COLLECTION_ID, queries),
         databases.listDocuments(DATABASE_ID, MATERIAL_COLLECTION_ID, queries),
         databases.listDocuments(DATABASE_ID, SIZE_COLLECTION_ID, queries),
         databases.listDocuments(
@@ -283,6 +292,7 @@ export default function ProductsLanding() {
         pharmacologicalsRes.documents as unknown as SimpleRef[],
       );
       setDosageForms(dosageFormsRes.documents as unknown as SimpleRef[]);
+      setUnitDoses(unitDosesRes.documents as unknown as SimpleRef[]);
       setMaterialsData(materialsRes.documents as unknown as SimpleRef[]);
       setSizesData(sizesRes.documents as unknown as SimpleRef[]);
       setCapacityVolumesData(
@@ -358,6 +368,10 @@ export default function ProductsLanding() {
   const handleContainerSearch = createLookupSearchHandler(
     CONTAINER_COLLECTION_ID,
     setContainers,
+  );
+  const handleUnitDoseSearch = createLookupSearchHandler(
+    UNIT_DOSE_COLLECTION_ID,
+    setUnitDoses,
   );
   const handleMaterialSearch = createLookupSearchHandler(
     MATERIAL_COLLECTION_ID,
@@ -500,6 +514,8 @@ export default function ProductsLanding() {
     setAnatomicalId("");
     setPharmacologicalId("");
     setDosageFormId("");
+    setUnitDoseId("");
+    setDosageStrenght("");
     setMaterials("");
     setSizes("");
     setCapacityVolumes("");
@@ -507,18 +523,17 @@ export default function ProductsLanding() {
     setUsabilities("");
     setStraps("");
     setContents("");
-    setAtcCodeNa(false);
-    setAnatomicalNa(false);
-    setPharmacologicalNa(false);
-    setDosageFormNa(false);
-    setContainerNa(false);
-    setMaterialNa(false);
-    setSizeNa(false);
-    setCapacityVolumeNa(false);
-    setSterilityNa(false);
-    setUsabilityNa(false);
-    setStrapNa(false);
-    setContentNa(false);
+    setAtcCodeNa(true);
+    setAnatomicalNa(true);
+    setPharmacologicalNa(true);
+    setContainerNa(true);
+    setMaterialNa(true);
+    setSizeNa(true);
+    setCapacityVolumeNa(true);
+    setSterilityNa(true);
+    setUsabilityNa(true);
+    setStrapNa(true);
+    setContentNa(true);
   };
 
   const openCreateModal = () => {
@@ -535,6 +550,12 @@ export default function ProductsLanding() {
     setAnatomicalId(record.anatomicals ?? "");
     setPharmacologicalId(record.pharmacologicals ?? "");
     setDosageFormId(record.dosageForms ?? "");
+    setUnitDoseId(record.unitDoses ?? "");
+    setDosageStrenght(
+      record.dosage_strenght !== undefined && record.dosage_strenght !== null
+        ? String(record.dosage_strenght)
+        : "",
+    );
     setMaterials(record.materials ?? "");
     setSizes(record.sizes ?? "");
     setCapacityVolumes(record.capacityVolumes ?? "");
@@ -545,7 +566,6 @@ export default function ProductsLanding() {
     setAtcCodeNa(!record.atcCodes);
     setAnatomicalNa(!record.anatomicals);
     setPharmacologicalNa(!record.pharmacologicals);
-    setDosageFormNa(!record.dosageForms);
     setContainerNa(!record.containers);
     setMaterialNa(!record.materials);
     setSizeNa(!record.sizes);
@@ -586,6 +606,17 @@ export default function ProductsLanding() {
       return;
     }
 
+    const trimmedDosageStrenght = dosageStrenght.trim();
+    let parsedDosageStrenght: number | undefined;
+    if (trimmedDosageStrenght) {
+      const parsed = Number(trimmedDosageStrenght);
+      if (!Number.isInteger(parsed)) {
+        setFormError("Dosage strength must be an integer.");
+        return;
+      }
+      parsedDosageStrenght = parsed;
+    }
+
     // When Drugs category is selected, drug-related fields are required
     if (category === "6921b34200391101bcf0") {
       if (!atcCodeNa && !atcCodeId) {
@@ -598,10 +629,6 @@ export default function ProductsLanding() {
       }
       if (!pharmacologicalNa && !pharmacologicalId) {
         setFormError("Pharmacological is required unless marked N/A.");
-        return;
-      }
-      if (!dosageFormNa && !dosageFormId) {
-        setFormError("Dosage Form is required unless marked N/A.");
         return;
       }
       if (!containerNa && !containerId) {
@@ -624,6 +651,9 @@ export default function ProductsLanding() {
       if (anatomicalId) data.anatomicals = anatomicalId;
       if (pharmacologicalId) data.pharmacologicals = pharmacologicalId;
       if (dosageFormId) data.dosageForms = dosageFormId;
+      if (unitDoseId) data.unitDoses = unitDoseId;
+      if (parsedDosageStrenght !== undefined)
+        data.dosage_strenght = parsedDosageStrenght;
       if (materials) data.materials = materials;
       if (sizes) data.sizes = sizes;
       if (capacityVolumes) data.capacityVolumes = capacityVolumes;
@@ -679,10 +709,6 @@ export default function ProductsLanding() {
       }
       if (!pharmacologicalNa && !pharmacologicalId) {
         setFormError("Pharmacological is required unless marked N/A.");
-        return;
-      }
-      if (!dosageFormNa && !dosageFormId) {
-        setFormError("Dosage Form is required unless marked N/A.");
         return;
       }
       if (!containerNa && !containerId) {
@@ -896,6 +922,7 @@ export default function ProductsLanding() {
                               contents={contentsData}
                               dosageForms={dosageForms}
                               containers={containers}
+                              unitDoses={unitDoses}
                             />
                           </TableCell>
                           <TableCell className="px-5 py-4 text-start text-gray-600 text-theme-sm dark:text-gray-300">
@@ -1025,169 +1052,196 @@ export default function ProductsLanding() {
                   <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
                     Drugs Technical Descriptions
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>ATC Code</Label>
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1">
-                          <SearchableSelectWithAdd
-                            options={atcCodes.map((code) => ({
-                              value: code.$id,
-                              label: code.description,
-                            }))}
-                            placeholder="Select ATC code"
-                            defaultValue={atcCodeId}
-                            onChange={(value) => setAtcCodeId(value)}
-                            onSearchChange={handleAtcSearch}
-                            onAdd={() =>
-                              openLookupCreateModal({
-                                title: "ATC Code",
-                                collectionId: ATC_CODE_COLLECTION_ID,
-                                setList: setAtcCodes,
-                                setSelectedId: setAtcCodeId,
-                              })
-                            }
-                            disabled={atcCodeNa}
-                          />
-                        </div>
-                        <Checkbox
-                          label="N/A"
-                          checked={atcCodeNa}
-                          onChange={(checked) => {
-                            setAtcCodeNa(checked);
-                            if (checked) setAtcCodeId("");
-                          }}
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="dosage-strength">Dosage Strength</Label>
+                        <InputField
+                          id="dosage-strength"
+                          type="number"
+                          value={dosageStrenght}
+                          onChange={(
+                            e: React.ChangeEvent<HTMLInputElement>,
+                          ) => setDosageStrenght(e.target.value)}
                         />
                       </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Anatomical</Label>
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1">
-                          <SearchableSelectWithAdd
-                            options={anatomicals.map((item) => ({
-                              value: item.$id,
-                              label: item.description,
-                            }))}
-                            placeholder="Select anatomical"
-                            defaultValue={anatomicalId}
-                            onChange={(value) => setAnatomicalId(value)}
-                            onSearchChange={handleAnatomicalSearch}
-                            onAdd={() =>
-                              openLookupCreateModal({
-                                title: "Anatomical",
-                                collectionId: ANATOMICAL_COLLECTION_ID,
-                                setList: setAnatomicals,
-                                setSelectedId: setAnatomicalId,
-                              })
-                            }
-                            disabled={anatomicalNa}
-                          />
-                        </div>
-                        <Checkbox
-                          label="N/A"
-                          checked={anatomicalNa}
-                          onChange={(checked) => {
-                            setAnatomicalNa(checked);
-                            if (checked) setAnatomicalId("");
-                          }}
+                      <div className="space-y-2">
+                        <Label>Unit Dose</Label>
+                        <SearchableSelectWithAdd
+                          options={unitDoses.map((item) => ({
+                            value: item.$id,
+                            label: item.description,
+                          }))}
+                          placeholder="Select unit dose"
+                          defaultValue={unitDoseId}
+                          onChange={(value) => setUnitDoseId(value)}
+                          onSearchChange={handleUnitDoseSearch}
+                          onAdd={() =>
+                            openLookupCreateModal({
+                              title: "Unit Dose",
+                              collectionId: UNIT_DOSE_COLLECTION_ID,
+                              setList: setUnitDoses,
+                              setSelectedId: setUnitDoseId,
+                            })
+                          }
                         />
                       </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Pharmacological</Label>
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1">
-                          <SearchableSelectWithAdd
-                            options={pharmacologicals.map((item) => ({
-                              value: item.$id,
-                              label: item.description,
-                            }))}
-                            placeholder="Select pharmacological"
-                            defaultValue={pharmacologicalId}
-                            onChange={handlePharmacologicalChange}
-                            onSearchChange={handlePharmacologicalSearch}
-                            onAdd={openPharmacologicalCreateModal}
-                            addButtonDisabled={pharmacologicalNa}
-                            disabled={pharmacologicalNa}
+                      <div className="space-y-2">
+                        <Label>Dosage Form</Label>
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1">
+                            <SearchableSelectWithAdd
+                              options={dosageForms.map((item) => ({
+                                value: item.$id,
+                                label: item.description,
+                              }))}
+                              placeholder="Select dosage form"
+                              defaultValue={dosageFormId}
+                              onChange={(value) => setDosageFormId(value)}
+                              onSearchChange={handleDosageFormSearch}
+                              onAdd={() =>
+                                openLookupCreateModal({
+                                  title: "Dosage Form",
+                                  collectionId: DOSAGE_FORM_COLLECTION_ID,
+                                  setList: setDosageForms,
+                                  setSelectedId: setDosageFormId,
+                                })
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Container</Label>
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1">
+                            <SearchableSelectWithAdd
+                              options={containers.map((item) => ({
+                                value: item.$id,
+                                label: item.description,
+                              }))}
+                              placeholder="Select container"
+                              defaultValue={containerId}
+                              onChange={(value) => setContainerId(value)}
+                              onSearchChange={handleContainerSearch}
+                              onAdd={() =>
+                                openLookupCreateModal({
+                                  title: "Container",
+                                  collectionId: CONTAINER_COLLECTION_ID,
+                                  setList: setContainers,
+                                  setSelectedId: setContainerId,
+                                })
+                              }
+                              disabled={containerNa}
+                            />
+                          </div>
+                          <Checkbox
+                            label="N/A"
+                            checked={containerNa}
+                            onChange={(checked) => {
+                              setContainerNa(checked);
+                              if (checked) setContainerId("");
+                            }}
                           />
                         </div>
-                        <Checkbox
-                          label="N/A"
-                          checked={pharmacologicalNa}
-                          onChange={(checked) => {
-                            setPharmacologicalNa(checked);
-                            if (checked) setPharmacologicalId("");
-                          }}
-                        />
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Dosage Form</Label>
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1">
-                          <SearchableSelectWithAdd
-                            options={dosageForms.map((item) => ({
-                              value: item.$id,
-                              label: item.description,
-                            }))}
-                            placeholder="Select dosage form"
-                            defaultValue={dosageFormId}
-                            onChange={(value) => setDosageFormId(value)}
-                            onSearchChange={handleDosageFormSearch}
-                            onAdd={() =>
-                              openLookupCreateModal({
-                                title: "Dosage Form",
-                                collectionId: DOSAGE_FORM_COLLECTION_ID,
-                                setList: setDosageForms,
-                                setSelectedId: setDosageFormId,
-                              })
-                            }
-                            disabled={dosageFormNa}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label>ATC Code</Label>
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1">
+                            <SearchableSelectWithAdd
+                              options={atcCodes.map((code) => ({
+                                value: code.$id,
+                                label: code.description,
+                              }))}
+                              placeholder="Select ATC code"
+                              defaultValue={atcCodeId}
+                              onChange={(value) => setAtcCodeId(value)}
+                              onSearchChange={handleAtcSearch}
+                              onAdd={() =>
+                                openLookupCreateModal({
+                                  title: "ATC Code",
+                                  collectionId: ATC_CODE_COLLECTION_ID,
+                                  setList: setAtcCodes,
+                                  setSelectedId: setAtcCodeId,
+                                })
+                              }
+                              disabled={atcCodeNa}
+                            />
+                          </div>
+                          <Checkbox
+                            label="N/A"
+                            checked={atcCodeNa}
+                            onChange={(checked) => {
+                              setAtcCodeNa(checked);
+                              if (checked) setAtcCodeId("");
+                            }}
                           />
                         </div>
-                        <Checkbox
-                          label="N/A"
-                          checked={dosageFormNa}
-                          onChange={(checked) => {
-                            setDosageFormNa(checked);
-                            if (checked) setDosageFormId("");
-                          }}
-                        />
                       </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Container</Label>
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1">
-                          <SearchableSelectWithAdd
-                            options={containers.map((item) => ({
-                              value: item.$id,
-                              label: item.description,
-                            }))}
-                            placeholder="Select container"
-                            defaultValue={containerId}
-                            onChange={(value) => setContainerId(value)}
-                            onSearchChange={handleContainerSearch}
-                            onAdd={() =>
-                              openLookupCreateModal({
-                                title: "Container",
-                                collectionId: CONTAINER_COLLECTION_ID,
-                                setList: setContainers,
-                                setSelectedId: setContainerId,
-                              })
-                            }
-                            disabled={containerNa}
+                      <div className="space-y-2">
+                        <Label>Anatomical</Label>
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1">
+                            <SearchableSelectWithAdd
+                              options={anatomicals.map((item) => ({
+                                value: item.$id,
+                                label: item.description,
+                              }))}
+                              placeholder="Select anatomical"
+                              defaultValue={anatomicalId}
+                              onChange={(value) => setAnatomicalId(value)}
+                              onSearchChange={handleAnatomicalSearch}
+                              onAdd={() =>
+                                openLookupCreateModal({
+                                  title: "Anatomical",
+                                  collectionId: ANATOMICAL_COLLECTION_ID,
+                                  setList: setAnatomicals,
+                                  setSelectedId: setAnatomicalId,
+                                })
+                              }
+                              disabled={anatomicalNa}
+                            />
+                          </div>
+                          <Checkbox
+                            label="N/A"
+                            checked={anatomicalNa}
+                            onChange={(checked) => {
+                              setAnatomicalNa(checked);
+                              if (checked) setAnatomicalId("");
+                            }}
                           />
                         </div>
-                        <Checkbox
-                          label="N/A"
-                          checked={containerNa}
-                          onChange={(checked) => {
-                            setContainerNa(checked);
-                            if (checked) setContainerId("");
-                          }}
-                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Pharmacological</Label>
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1">
+                            <SearchableSelectWithAdd
+                              options={pharmacologicals.map((item) => ({
+                                value: item.$id,
+                                label: item.description,
+                              }))}
+                              placeholder="Select pharmacological"
+                              defaultValue={pharmacologicalId}
+                              onChange={handlePharmacologicalChange}
+                              onSearchChange={handlePharmacologicalSearch}
+                              onAdd={openPharmacologicalCreateModal}
+                              addButtonDisabled={pharmacologicalNa}
+                              disabled={pharmacologicalNa}
+                            />
+                          </div>
+                          <Checkbox
+                            label="N/A"
+                            checked={pharmacologicalNa}
+                            onChange={(checked) => {
+                              setPharmacologicalNa(checked);
+                              if (checked) setPharmacologicalId("");
+                            }}
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1642,146 +1696,174 @@ export default function ProductsLanding() {
                   <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
                     Drugs TechnicalDescriptions
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>ATC Code</Label>
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1">
-                          <SearchableSelectWithAdd
-                            key={selectedDescription?.$id ?? "edit-atc-code"}
-                            options={atcCodes.map((code) => ({
-                              value: code.$id,
-                              label: code.description,
-                            }))}
-                            placeholder="Select ATC code"
-                            defaultValue={atcCodeId}
-                            onChange={(value) => setAtcCodeId(value)}
-                            onSearchChange={handleAtcSearch}
-                            onAdd={() => {}}
-                            disabled={atcCodeNa}
-                          />
-                        </div>
-                        <Checkbox
-                          label="N/A"
-                          checked={atcCodeNa}
-                          onChange={(checked) => {
-                            setAtcCodeNa(checked);
-                            if (checked) setAtcCodeId("");
-                          }}
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div className="space-y-2">
+                        <Label>Dosage Strength</Label>
+                        <InputField
+                          id="edit-dosage-strength"
+                          type="number"
+                          value={dosageStrenght}
+                          onChange={(
+                            e: React.ChangeEvent<HTMLInputElement>,
+                          ) => setDosageStrenght(e.target.value)}
                         />
                       </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Anatomical</Label>
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1">
-                          <SearchableSelectWithAdd
-                            key={selectedDescription?.$id ?? "edit-anatomical"}
-                            options={anatomicals.map((item) => ({
-                              value: item.$id,
-                              label: item.description,
-                            }))}
-                            placeholder="Select anatomical"
-                            defaultValue={anatomicalId}
-                            onChange={(value) => setAnatomicalId(value)}
-                            onSearchChange={handleAnatomicalSearch}
-                            onAdd={() => {}}
-                            disabled={anatomicalNa}
-                          />
-                        </div>
-                        <Checkbox
-                          label="N/A"
-                          checked={anatomicalNa}
-                          onChange={(checked) => {
-                            setAnatomicalNa(checked);
-                            if (checked) setAnatomicalId("");
-                          }}
+                      <div className="space-y-2">
+                        <Label>Unit Dose</Label>
+                        <SearchableSelectWithAdd
+                          options={unitDoses.map((item) => ({
+                            value: item.$id,
+                            label: item.description,
+                          }))}
+                          placeholder="Select unit dose"
+                          defaultValue={unitDoseId}
+                          onChange={(value) => setUnitDoseId(value)}
+                          onSearchChange={handleUnitDoseSearch}
+                          onAdd={() =>
+                            openLookupCreateModal({
+                              title: "Unit Dose",
+                              collectionId: UNIT_DOSE_COLLECTION_ID,
+                              setList: setUnitDoses,
+                              setSelectedId: setUnitDoseId,
+                            })
+                          }
                         />
                       </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Pharmacological</Label>
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1">
-                          <SearchableSelectWithAdd
-                            key={selectedDescription?.$id ?? "edit-pharmacological"}
-                            options={pharmacologicals.map((item) => ({
-                              value: item.$id,
-                              label: item.description,
-                            }))}
-                            placeholder="Select pharmacological"
-                            defaultValue={pharmacologicalId}
-                            onChange={(value) => setPharmacologicalId(value)}
-                            onSearchChange={handlePharmacologicalSearch}
-                            onAdd={openPharmacologicalCreateModal}
-                            addButtonDisabled={pharmacologicalNa}
-                            disabled={pharmacologicalNa}
+                      <div className="space-y-2">
+                        <Label>Dosage Form</Label>
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1">
+                            <SearchableSelectWithAdd
+                              key={selectedDescription?.$id ?? "edit-dosage-form"}
+                              options={dosageForms.map((item) => ({
+                                value: item.$id,
+                                label: item.description,
+                              }))}
+                              placeholder="Select dosage form"
+                              defaultValue={dosageFormId}
+                              onChange={(value) => setDosageFormId(value)}
+                              onSearchChange={handleDosageFormSearch}
+                              onAdd={() => {}}
+                            />
+                          </div>
+
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Container</Label>
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1">
+                            <SearchableSelectWithAdd
+                              key={selectedDescription?.$id ?? "edit-container"}
+                              options={containers.map((item) => ({
+                                value: item.$id,
+                                label: item.description,
+                              }))}
+                              placeholder="Select container"
+                              defaultValue={containerId}
+                              onChange={(value) => setContainerId(value)}
+                              onSearchChange={handleContainerSearch}
+                              onAdd={() => {}}
+                              disabled={containerNa}
+                            />
+                          </div>
+                          <Checkbox
+                            label="N/A"
+                            checked={containerNa}
+                            onChange={(checked) => {
+                              setContainerNa(checked);
+                              if (checked) setContainerId("");
+                            }}
                           />
                         </div>
-                        <Checkbox
-                          label="N/A"
-                          checked={pharmacologicalNa}
-                          onChange={(checked) => {
-                            setPharmacologicalNa(checked);
-                            if (checked) setPharmacologicalId("");
-                          }}
-                        />
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Dosage Form</Label>
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1">
-                          <SearchableSelectWithAdd
-                            key={selectedDescription?.$id ?? "edit-dosage-form"}
-                            options={dosageForms.map((item) => ({
-                              value: item.$id,
-                              label: item.description,
-                            }))}
-                            placeholder="Select dosage form"
-                            defaultValue={dosageFormId}
-                            onChange={(value) => setDosageFormId(value)}
-                            onSearchChange={handleDosageFormSearch}
-                            onAdd={() => {}}
-                            disabled={dosageFormNa}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label>ATC Code</Label>
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1">
+                            <SearchableSelectWithAdd
+                              key={selectedDescription?.$id ?? "edit-atc-code"}
+                              options={atcCodes.map((code) => ({
+                                value: code.$id,
+                                label: code.description,
+                              }))}
+                              placeholder="Select ATC code"
+                              defaultValue={atcCodeId}
+                              onChange={(value) => setAtcCodeId(value)}
+                              onSearchChange={handleAtcSearch}
+                              onAdd={() => {}}
+                              disabled={atcCodeNa}
+                            />
+                          </div>
+                          <Checkbox
+                            label="N/A"
+                            checked={atcCodeNa}
+                            onChange={(checked) => {
+                              setAtcCodeNa(checked);
+                              if (checked) setAtcCodeId("");
+                            }}
                           />
                         </div>
-                        <Checkbox
-                          label="N/A"
-                          checked={dosageFormNa}
-                          onChange={(checked) => {
-                            setDosageFormNa(checked);
-                            if (checked) setDosageFormId("");
-                          }}
-                        />
                       </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Container</Label>
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1">
-                          <SearchableSelectWithAdd
-                            key={selectedDescription?.$id ?? "edit-container"}
-                            options={containers.map((item) => ({
-                              value: item.$id,
-                              label: item.description,
-                            }))}
-                            placeholder="Select container"
-                            defaultValue={containerId}
-                            onChange={(value) => setContainerId(value)}
-                            onSearchChange={handleContainerSearch}
-                            onAdd={() => {}}
-                            disabled={containerNa}
+                      <div className="space-y-2">
+                        <Label>Anatomical</Label>
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1">
+                            <SearchableSelectWithAdd
+                              key={selectedDescription?.$id ?? "edit-anatomical"}
+                              options={anatomicals.map((item) => ({
+                                value: item.$id,
+                                label: item.description,
+                              }))}
+                              placeholder="Select anatomical"
+                              defaultValue={anatomicalId}
+                              onChange={(value) => setAnatomicalId(value)}
+                              onSearchChange={handleAnatomicalSearch}
+                              onAdd={() => {}}
+                              disabled={anatomicalNa}
+                            />
+                          </div>
+                          <Checkbox
+                            label="N/A"
+                            checked={anatomicalNa}
+                            onChange={(checked) => {
+                              setAnatomicalNa(checked);
+                              if (checked) setAnatomicalId("");
+                            }}
                           />
                         </div>
-                        <Checkbox
-                          label="N/A"
-                          checked={containerNa}
-                          onChange={(checked) => {
-                            setContainerNa(checked);
-                            if (checked) setContainerId("");
-                          }}
-                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Pharmacological</Label>
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1">
+                            <SearchableSelectWithAdd
+                              key={selectedDescription?.$id ?? "edit-pharmacological"}
+                              options={pharmacologicals.map((item) => ({
+                                value: item.$id,
+                                label: item.description,
+                              }))}
+                              placeholder="Select pharmacological"
+                              defaultValue={pharmacologicalId}
+                              onChange={(value) => setPharmacologicalId(value)}
+                              onSearchChange={handlePharmacologicalSearch}
+                              onAdd={openPharmacologicalCreateModal}
+                              addButtonDisabled={pharmacologicalNa}
+                              disabled={pharmacologicalNa}
+                            />
+                          </div>
+                          <Checkbox
+                            label="N/A"
+                            checked={pharmacologicalNa}
+                            onChange={(checked) => {
+                              setPharmacologicalNa(checked);
+                              if (checked) setPharmacologicalId("");
+                            }}
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>

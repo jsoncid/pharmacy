@@ -20,6 +20,7 @@ import SearchableSelect from "../../components/form/SearchableSelect";
 import DatePicker from "../../components/form/date-picker";
 import Checkbox from "../../components/form/input/Checkbox";
 import ProductDescriptionDetails from "../../components/DescriptionHooks/ProductDescriptionDetails";
+import { formatPeso } from "../../components/DescriptionHooks/currencyFormatter";
 import { useAuth } from "../../context/AuthContext";
 
 const databases = new Databases(client);
@@ -54,6 +55,7 @@ interface Delivery {
   delivered_date: string;
   created_by: string;
   status: boolean;
+  total_delivery_amount?: number;
 }
 
 interface ProductDescription {
@@ -67,6 +69,8 @@ interface ProductDescription {
   stocking_unit?: string;
   qty?: number;
   qty_extra?: number;
+  price_delivery?: number;
+  total_item_amount?: number;
 }
 
 interface UnitOption {
@@ -89,6 +93,8 @@ interface DeliveryItemDraft {
   stocking_unit?: string;
   qty?: number;
   qty_extra?: number;
+  price_delivery?: number;
+  total_item_amount?: number;
   is_approved?: boolean;
 }
 
@@ -142,6 +148,8 @@ export default function Deliveries() {
   const [itemStockingUnit, setItemStockingUnit] = useState("");
   const [itemQty, setItemQty] = useState("");
   const [itemQtyExtra, setItemQtyExtra] = useState("");
+  const [itemPriceDelivery, setItemPriceDelivery] = useState("");
+  const [itemTotalItemAmount, setItemTotalItemAmount] = useState("");
   const [useItemDateExpiry, setUseItemDateExpiry] = useState(false);
   const [useItemLotNo, setUseItemLotNo] = useState(false);
   const [useItemBatchNo, setUseItemBatchNo] = useState(false);
@@ -310,6 +318,8 @@ export default function Deliveries() {
     setItemStockingUnit("");
     setItemQty("");
     setItemQtyExtra("");
+    setItemPriceDelivery("");
+    setItemTotalItemAmount("");
     setUseItemDateExpiry(false);
     setUseItemLotNo(false);
     setUseItemBatchNo(false);
@@ -388,6 +398,16 @@ export default function Deliveries() {
           (doc as any).qty_extra !== undefined && (doc as any).qty_extra !== null
             ? Number((doc as any).qty_extra)
             : undefined,
+        price_delivery:
+          (doc as any).price_delivery !== undefined &&
+          (doc as any).price_delivery !== null
+            ? Number((doc as any).price_delivery)
+            : undefined,
+        total_item_amount:
+          (doc as any).total_item_amount !== undefined &&
+          (doc as any).total_item_amount !== null
+            ? Number((doc as any).total_item_amount)
+            : undefined,
         is_approved: (doc as any).is_approved ?? undefined,
       }));
       setItems(mapped);
@@ -402,7 +422,7 @@ export default function Deliveries() {
       return;
     }
     if (!itemStockingUnit) {
-      setItemsError("Please select a stocking unit.");
+      setItemsError("Please select a unit.");
       return;
     }
     const baseQty = itemQty.trim() ? Number(itemQty) : undefined;
@@ -410,18 +430,25 @@ export default function Deliveries() {
       useItemQtyExtra && itemQtyExtra.trim()
         ? Number(itemQtyExtra)
         : undefined;
+    const price =
+      itemPriceDelivery.trim() ? Number(itemPriceDelivery) : undefined;
     const baseValid =
       baseQty !== undefined && Number.isFinite(baseQty) && baseQty > 0;
     const extraValid =
       extraQty !== undefined && Number.isFinite(extraQty) && extraQty > 0;
+    const priceValid =
+      price !== undefined && Number.isFinite(price) && price >= 0;
 
     if (!baseValid && !extraValid) {
       setItemsError("Qty or Qty Extra must be a positive number.");
       return;
     }
+    if (!priceValid) {
+      setItemsError("Price delivery is required and must be a valid number.");
+      return;
+    }
     setItemsError(null);
     setItems((prev) => [
-      ...prev,
       {
         productId: itemProductId,
         date_expiry: useItemDateExpiry ? itemDateExpiry || undefined : undefined,
@@ -430,7 +457,13 @@ export default function Deliveries() {
         stocking_unit: itemStockingUnit || undefined,
         qty: baseQty,
         qty_extra: extraQty,
+        price_delivery: price,
+        total_item_amount:
+          price !== undefined && baseQty !== undefined
+            ? price * baseQty
+            : undefined,
       },
+      ...prev,
     ]);
     setItemProductId("");
     setItemDateExpiry("");
@@ -439,6 +472,8 @@ export default function Deliveries() {
     setItemStockingUnit("");
     setItemQty("");
     setItemQtyExtra("");
+    setItemPriceDelivery("");
+    setItemTotalItemAmount("");
     setUseItemDateExpiry(false);
     setUseItemLotNo(false);
     setUseItemBatchNo(false);
@@ -536,6 +571,8 @@ export default function Deliveries() {
             stocking_unit: item.stocking_unit,
             qty: item.qty,
             qty_extra: item.qty_extra,
+            price_delivery: item.price_delivery,
+            total_item_amount: item.total_item_amount,
             status: true,
           },
           transactionId,
@@ -550,6 +587,12 @@ export default function Deliveries() {
       setFormError("Unable to determine current user.");
       return;
     }
+    const totalDeliveryAmount = items.reduce((sum, item) => {
+      const value = item.total_item_amount;
+      return typeof value === "number" && Number.isFinite(value)
+        ? sum + value
+        : sum;
+    }, 0);
     try {
       setSubmitting(true);
       const deliveryDoc = await runInTransaction(async (transactionId) => {
@@ -564,6 +607,7 @@ export default function Deliveries() {
             delivered_date: deliveredDate,
             created_by: user.$id,
             status: true,
+            total_delivery_amount: totalDeliveryAmount,
           },
           transactionId,
         });
@@ -584,6 +628,12 @@ export default function Deliveries() {
   const handleEditSubmit = async () => {
     if (!selectedDelivery) return;
     if (!validateDeliveryForm()) return;
+    const totalDeliveryAmount = items.reduce((sum, item) => {
+      const value = item.total_item_amount;
+      return typeof value === "number" && Number.isFinite(value)
+        ? sum + value
+        : sum;
+    }, 0);
     try {
       setSubmitting(true);
       const updated = await runInTransaction(async (transactionId) => {
@@ -596,6 +646,7 @@ export default function Deliveries() {
             delivered_by: deliveredBy.trim(),
             delivered_date: deliveredDate,
             status: true,
+            total_delivery_amount: totalDeliveryAmount,
           },
           transactionId,
         });
@@ -746,6 +797,12 @@ export default function Deliveries() {
                       isHeader
                       className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
                     >
+                      Total Amount
+                    </TableCell>
+                    <TableCell
+                      isHeader
+                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                    >
                       Actions
                     </TableCell>
                   </TableRow>
@@ -762,6 +819,9 @@ export default function Deliveries() {
                         </TableCell>
                         <TableCell className="px-5 py-4 text-start text-gray-600 text-theme-sm dark:text-gray-300">
                           {formatDeliveredDate(delivery.delivered_date)}
+                        </TableCell>
+                        <TableCell className="px-5 py-4 text-start text-gray-600 text-theme-sm dark:text-gray-300">
+                          {formatPeso(delivery.total_delivery_amount)}
                         </TableCell>
                         <TableCell className="px-5 py-4 text-start">
                           <div className="flex gap-2">
@@ -795,7 +855,7 @@ export default function Deliveries() {
                   ) : (
                     <TableRow>
                       <TableCell
-                        colSpan={4}
+                        colSpan={5}
                         className="px-5 py-8 text-center text-gray-600 dark:text-gray-300"
                       >
                         No deliveries found
@@ -892,6 +952,10 @@ export default function Deliveries() {
             setItemQtyExtra={setItemQtyExtra}
             useItemQtyExtra={useItemQtyExtra}
             setUseItemQtyExtra={setUseItemQtyExtra}
+            itemPriceDelivery={itemPriceDelivery}
+            setItemPriceDelivery={setItemPriceDelivery}
+            itemTotalItemAmount={itemTotalItemAmount}
+            setItemTotalItemAmount={setItemTotalItemAmount}
             itemsError={itemsError}
             formError={formError}
             onAddItem={handleAddItem}
@@ -961,6 +1025,10 @@ export default function Deliveries() {
             setItemQtyExtra={setItemQtyExtra}
             useItemQtyExtra={useItemQtyExtra}
             setUseItemQtyExtra={setUseItemQtyExtra}
+            itemPriceDelivery={itemPriceDelivery}
+            setItemPriceDelivery={setItemPriceDelivery}
+            itemTotalItemAmount={itemTotalItemAmount}
+            setItemTotalItemAmount={setItemTotalItemAmount}
             itemsError={itemsError}
             formError={formError}
             onAddItem={handleAddItem}
@@ -985,7 +1053,7 @@ export default function Deliveries() {
           </h2>
           {selectedDelivery && (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
                 <div>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     Delivery Receipt No
@@ -1008,6 +1076,14 @@ export default function Deliveries() {
                   </p>
                   <p className="text-sm font-medium text-gray-900 dark:text-white">
                     {formatDeliveredDate(selectedDelivery.delivered_date)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Total Amount
+                  </p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    {formatPeso(selectedDelivery.total_delivery_amount)}
                   </p>
                 </div>
               </div>
@@ -1036,7 +1112,7 @@ export default function Deliveries() {
                           isHeader
                           className="px-4 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
                         >
-                          Stocking Unit
+                          Unit
                         </TableCell>
                         <TableCell
                           isHeader
@@ -1049,6 +1125,18 @@ export default function Deliveries() {
                           className="px-4 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
                         >
                           Qty Extra
+                        </TableCell>
+                        <TableCell
+                          isHeader
+                          className="px-4 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                        >
+                          Price
+                        </TableCell>
+                        <TableCell
+                          isHeader
+                          className="px-4 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                        >
+                          Total Amount
                         </TableCell>
                         <TableCell
                           isHeader
@@ -1118,6 +1206,12 @@ export default function Deliveries() {
                                 {item.qty_extra ?? "-"}
                               </TableCell>
                               <TableCell className="px-4 py-3 text-start text-gray-600 text-theme-sm dark:text-gray-300">
+                                {formatPeso(item.price_delivery)}
+                              </TableCell>
+                              <TableCell className="px-4 py-3 text-start text-gray-600 text-theme-sm dark:text-gray-300">
+                                {formatPeso(item.total_item_amount)}
+                              </TableCell>
+                              <TableCell className="px-4 py-3 text-start text-gray-600 text-theme-sm dark:text-gray-300">
                                 {item.date_expiry ?? "-"}
                               </TableCell>
                               <TableCell className="px-4 py-3 text-start text-gray-600 text-theme-sm dark:text-gray-300">
@@ -1139,7 +1233,7 @@ export default function Deliveries() {
                       ) : (
                         <TableRow>
                           <TableCell
-                            colSpan={9}
+                            colSpan={11}
                             className="px-4 py-6 text-center text-gray-600 text-theme-sm dark:text-gray-300"
                           >
                             No products found for this delivery
@@ -1246,6 +1340,10 @@ interface DeliveryFormProps {
   setItemQtyExtra: (value: string) => void;
   useItemQtyExtra: boolean;
   setUseItemQtyExtra: (value: boolean) => void;
+  itemPriceDelivery: string;
+  setItemPriceDelivery: (value: string) => void;
+  itemTotalItemAmount: string;
+  setItemTotalItemAmount: (value: string) => void;
   itemsError: string | null;
   formError: string | null;
   onAddItem: () => void;
@@ -1304,6 +1402,10 @@ const DeliveryForm: React.FC<DeliveryFormProps> = (props) => {
     setItemQtyExtra,
     useItemQtyExtra,
     setUseItemQtyExtra,
+    itemPriceDelivery,
+    setItemPriceDelivery,
+    itemTotalItemAmount,
+    setItemTotalItemAmount,
     itemsError,
     formError,
     onAddItem,
@@ -1313,6 +1415,37 @@ const DeliveryForm: React.FC<DeliveryFormProps> = (props) => {
     onCancel,
     submitting,
   } = props;
+
+  const [itemsPage, setItemsPage] = useState(1);
+  const itemsPerPage = 3;
+
+  const totalItemPages = Math.max(
+    1,
+    Math.ceil(items.length / itemsPerPage) || 1,
+  );
+
+  const paginatedItems = items.slice(
+    (itemsPage - 1) * itemsPerPage,
+    itemsPage * itemsPerPage,
+  );
+
+  useEffect(() => {
+    const newTotalPages = Math.max(
+      1,
+      Math.ceil(items.length / itemsPerPage) || 1,
+    );
+
+    if (itemsPage > newTotalPages) {
+      setItemsPage(newTotalPages);
+    }
+  }, [items.length, itemsPerPage, itemsPage]);
+
+  const deliveryTotal = items.reduce((sum, item) => {
+    const value = item.total_item_amount;
+    return typeof value === "number" && Number.isFinite(value)
+      ? sum + value
+      : sum;
+  }, 0);
 
   return (
     <Form
@@ -1367,7 +1500,8 @@ const DeliveryForm: React.FC<DeliveryFormProps> = (props) => {
           <p className="text-xs text-error-500">{productsError}</p>
         )}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-12 items-end">
-          <div className="md:col-span-4">
+          {/* Row 1: Product, Unit, Qty, Qty Extra */}
+          <div className="md:col-span-5">
             <Label>Product</Label>
             <SearchableSelect
               options={products.map((product) => ({
@@ -1430,9 +1564,8 @@ const DeliveryForm: React.FC<DeliveryFormProps> = (props) => {
               disabled={productsLoading}
             />
           </div>
-          
           <div className="md:col-span-3">
-            <Label>Stocking Unit</Label>
+            <Label>Unit</Label>
             <SearchableSelect
               options={units.map((u) => ({ value: u.$id, label: u.description }))}
               placeholder={unitsLoading ? "Loading units..." : "Select unit"}
@@ -1451,7 +1584,24 @@ const DeliveryForm: React.FC<DeliveryFormProps> = (props) => {
               type="number"
               value={itemQty}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setItemQty(e.target.value)
+                {
+                  const value = e.target.value;
+                  setItemQty(value);
+                  const qtyNum = value.trim() ? Number(value) : undefined;
+                  const priceNum = itemPriceDelivery.trim()
+                    ? Number(itemPriceDelivery)
+                    : undefined;
+                  if (
+                    qtyNum !== undefined &&
+                    Number.isFinite(qtyNum) &&
+                    priceNum !== undefined &&
+                    Number.isFinite(priceNum)
+                  ) {
+                    setItemTotalItemAmount(String(priceNum * qtyNum));
+                  } else {
+                    setItemTotalItemAmount("");
+                  }
+                }
               }
             />
           </div>
@@ -1477,6 +1627,45 @@ const DeliveryForm: React.FC<DeliveryFormProps> = (props) => {
               />
             )}
           </div>
+
+          {/* Row 2: Price Delivery, Total Item Amount */}
+          <div className="md:col-span-6">
+            <Label htmlFor="delivery-item-price-delivery">Price Delivery</Label>
+            <InputField
+              id="delivery-item-price-delivery"
+              type="number"
+              value={itemPriceDelivery}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                {
+                  const value = e.target.value;
+                  setItemPriceDelivery(value);
+                  const priceNum = value.trim() ? Number(value) : undefined;
+                  const qtyNum = itemQty.trim() ? Number(itemQty) : undefined;
+                  if (
+                    qtyNum !== undefined &&
+                    Number.isFinite(qtyNum) &&
+                    priceNum !== undefined &&
+                    Number.isFinite(priceNum)
+                  ) {
+                    setItemTotalItemAmount(String(priceNum * qtyNum));
+                  } else {
+                    setItemTotalItemAmount("");
+                  }
+                }
+              }
+            />
+          </div>
+          <div className="md:col-span-6">
+            <Label htmlFor="delivery-item-total-amount">Total Item Amount</Label>
+            <InputField
+              id="delivery-item-total-amount"
+              type="number"
+              value={itemTotalItemAmount}
+              disabled
+            />
+          </div>
+
+          {/* Row 3: Expiry Date, Lot No, Batch No, Add Product button */}
           <div className="md:col-span-3 space-y-1.5">
             <Checkbox
               label="Expiry Date"
@@ -1544,8 +1733,7 @@ const DeliveryForm: React.FC<DeliveryFormProps> = (props) => {
               />
             )}
           </div>
-          
-          <div className="md:col-span-2 flex md:justify-end">
+          <div className="md:col-span-3 flex md:justify-end">
             <Button
               size="sm"
               variant="primary"
@@ -1581,7 +1769,7 @@ const DeliveryForm: React.FC<DeliveryFormProps> = (props) => {
                   isHeader
                   className="px-4 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
                 >
-                  Stocking Unit
+                  Unit
                 </TableCell>
                 <TableCell
                   isHeader
@@ -1594,6 +1782,18 @@ const DeliveryForm: React.FC<DeliveryFormProps> = (props) => {
                   className="px-4 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
                 >
                   Qty Extra
+                </TableCell>
+                <TableCell
+                  isHeader
+                  className="px-4 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                >
+                  Price
+                </TableCell>
+                <TableCell
+                  isHeader
+                  className="px-4 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                >
+                  Total Amount
                 </TableCell>
                 <TableCell
                   isHeader
@@ -1622,14 +1822,16 @@ const DeliveryForm: React.FC<DeliveryFormProps> = (props) => {
               </TableRow>
             </TableHeader>
             <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-              {items.length > 0 ? (
-                items.map((item, index) => {
+              {paginatedItems.length > 0 ? (
+                paginatedItems.map((item, index) => {
+                  const globalIndex =
+                    (itemsPage - 1) * itemsPerPage + index;
                   const product = products.find((p) => p.$id === item.productId);
                   const unit = units.find((u) => u.$id === item.stocking_unit);
                   return (
                     <TableRow key={`${item.productId}-${index}`}>
                       <TableCell className="px-4 py-3 text-start text-gray-600 text-theme-sm dark:text-gray-300">
-                        {index + 1}
+                        {globalIndex + 1}
                       </TableCell>
                       <TableCell className="px-4 py-3 text-start text-gray-600 text-theme-sm dark:text-gray-300">
                         {product ? (
@@ -1661,6 +1863,12 @@ const DeliveryForm: React.FC<DeliveryFormProps> = (props) => {
                         {item.qty_extra ?? "-"}
                       </TableCell>
                       <TableCell className="px-4 py-3 text-start text-gray-600 text-theme-sm dark:text-gray-300">
+                        {formatPeso(item.price_delivery)}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-start text-gray-600 text-theme-sm dark:text-gray-300">
+                        {formatPeso(item.total_item_amount)}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-start text-gray-600 text-theme-sm dark:text-gray-300">
                         {item.date_expiry ?? "-"}
                       </TableCell>
                       <TableCell className="px-4 py-3 text-start text-gray-600 text-theme-sm dark:text-gray-300">
@@ -1675,7 +1883,7 @@ const DeliveryForm: React.FC<DeliveryFormProps> = (props) => {
                           variant="primary"
                           className="bg-red-500 hover:bg-red-600"
                           type="button"
-                          onClick={() => onRemoveItem(index)}
+                          onClick={() => onRemoveItem(globalIndex)}
                         >
                           Remove
                         </Button>
@@ -1686,7 +1894,7 @@ const DeliveryForm: React.FC<DeliveryFormProps> = (props) => {
               ) : (
                 <TableRow>
                   <TableCell
-                    colSpan={9}
+                    colSpan={11}
                     className="px-4 py-6 text-center text-gray-600 text-theme-sm dark:text-gray-300"
                   >
                     No products added yet
@@ -1695,6 +1903,43 @@ const DeliveryForm: React.FC<DeliveryFormProps> = (props) => {
               )}
             </TableBody>
           </Table>
+          <div className="flex justify-end px-4 py-3 border-t border-gray-100 dark:border-white/[0.05]">
+            <span className="text-xs text-gray-600 dark:text-gray-300">
+              Total Delivery Amount:{" "}
+              <span className="font-semibold">
+                {formatPeso(deliveryTotal)}
+              </span>
+            </span>
+          </div>
+          {items.length > itemsPerPage && (
+            <div className="flex items-center justify-center gap-2 border-t border-gray-100 dark:border-white/[0.05] px-4 py-3">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={itemsPage === 1}
+                onClick={() =>
+                  setItemsPage((prev) => Math.max(1, prev - 1))
+                }
+              >
+                Previous
+              </Button>
+              <span className="px-3 py-2 text-xs text-gray-600 dark:text-gray-300">
+                Page {itemsPage} of {totalItemPages}
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={itemsPage === totalItemPages}
+                onClick={() =>
+                  setItemsPage((prev) =>
+                    Math.min(totalItemPages, prev + 1),
+                  )
+                }
+              >
+                Next
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
