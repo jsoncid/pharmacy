@@ -26,6 +26,7 @@ interface AtcCode {
   $updatedAt: string;
   description: string;
   status: boolean;
+  editable?: boolean | string;
 }
 
 export default function AtcCodes() {
@@ -45,6 +46,9 @@ export default function AtcCodes() {
   const [description, setDescription] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const isNotEditable =
+    selectedCode?.editable === false || selectedCode?.editable === "false";
 
   useEffect(() => {
     fetchCodes();
@@ -324,6 +328,9 @@ export default function AtcCodes() {
                               variant="primary"
                               className="bg-blue-600 hover:bg-blue-700"
                               onClick={() => openEditModal(code)}
+                              disabled={
+                                code.editable === false || code.editable === "false"
+                              }
                             >
                               Edit
                             </Button>
@@ -332,6 +339,9 @@ export default function AtcCodes() {
                               variant="primary"
                               className="bg-gray-500 hover:bg-gray-600"
                               onClick={() => openDeleteModal(code)}
+                              disabled={
+                                code.editable === false || code.editable === "false"
+                              }
                             >
                               Deactivate
                             </Button>
@@ -518,6 +528,7 @@ export default function AtcCodes() {
               size="sm"
               variant="outline"
               onClick={closeAllModals}
+              disabled={isNotEditable}
             >
               Cancel
             </Button>
@@ -526,7 +537,7 @@ export default function AtcCodes() {
               variant="primary"
               className="bg-red-500 hover:bg-red-600"
               onClick={handleDelete}
-              disabled={submitting}
+              disabled={submitting || isNotEditable}
             >
               Deactivate
             </Button>

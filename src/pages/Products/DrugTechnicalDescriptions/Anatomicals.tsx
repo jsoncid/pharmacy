@@ -26,6 +26,7 @@ interface Anatomical {
   $updatedAt: string;
   description: string;
   status: boolean;
+  editable?: boolean | string;
 }
 
 export default function Anatomicals() {
@@ -47,6 +48,10 @@ export default function Anatomicals() {
   const [description, setDescription] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const isNotEditable =
+    selectedAnatomical?.editable === false ||
+    selectedAnatomical?.editable === "false";
 
   useEffect(() => {
     fetchAnatomicals();
@@ -281,17 +286,15 @@ export default function Anatomicals() {
               type="text"
               placeholder="Search anatomicals..."
               value={searchQuery}
-              onChange={(
-                e: React.ChangeEvent<HTMLInputElement>,
-              ) => setSearchQuery(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setSearchQuery(e.target.value)
+              }
             />
           </div>
         </div>
 
         {error && (
-          <p className="text-sm text-error-500">
-            {error}
-          </p>
+          <p className="text-sm text-error-500">{error}</p>
         )}
 
         {loading ? (
@@ -334,6 +337,10 @@ export default function Anatomicals() {
                               variant="primary"
                               className="bg-blue-600 hover:bg-blue-700"
                               onClick={() => openEditModal(anatomical)}
+                              disabled={
+                                anatomical.editable === false ||
+                                anatomical.editable === "false"
+                              }
                             >
                               Edit
                             </Button>
@@ -342,6 +349,10 @@ export default function Anatomicals() {
                               variant="primary"
                               className="bg-gray-500 hover:bg-gray-600"
                               onClick={() => openDeleteModal(anatomical)}
+                              disabled={
+                                anatomical.editable === false ||
+                                anatomical.editable === "false"
+                              }
                             >
                               Deactivate
                             </Button>
@@ -416,16 +427,14 @@ export default function Anatomicals() {
                 id="anatomical-description"
                 type="text"
                 value={description}
-                onChange={(
-                  e: React.ChangeEvent<HTMLInputElement>,
-                ) => setDescription(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setDescription(e.target.value)
+                }
                 placeholder="Short description of anatomical classification"
               />
             </div>
             {formError && (
-              <p className="text-sm text-error-500">
-                {formError}
-              </p>
+              <p className="text-sm text-error-500">{formError}</p>
             )}
             <div className="flex justify-end gap-2">
               <Button
@@ -471,16 +480,14 @@ export default function Anatomicals() {
                 id="edit-anatomical-description"
                 type="text"
                 value={description}
-                onChange={(
-                  e: React.ChangeEvent<HTMLInputElement>,
-                ) => setDescription(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setDescription(e.target.value)
+                }
                 placeholder="Short description of anatomical classification"
               />
             </div>
             {formError && (
-              <p className="text-sm text-error-500">
-                {formError}
-              </p>
+              <p className="text-sm text-error-500">{formError}</p>
             )}
             <div className="flex justify-end gap-2">
               <Button
@@ -519,15 +526,14 @@ export default function Anatomicals() {
             It will be hidden from the list but can be restored later.
           </p>
           {formError && (
-            <p className="text-sm text-error-500">
-              {formError}
-            </p>
+            <p className="text-sm text-error-500">{formError}</p>
           )}
           <div className="flex justify-end gap-2">
             <Button
               size="sm"
               variant="outline"
               onClick={closeAllModals}
+              disabled={isNotEditable}
             >
               Cancel
             </Button>
@@ -536,7 +542,7 @@ export default function Anatomicals() {
               variant="primary"
               className="bg-red-500 hover:bg-red-600"
               onClick={handleDelete}
-              disabled={submitting}
+              disabled={submitting || isNotEditable}
             >
               Deactivate
             </Button>

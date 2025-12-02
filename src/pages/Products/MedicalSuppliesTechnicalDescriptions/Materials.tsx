@@ -26,6 +26,7 @@ interface Material {
   $updatedAt: string;
   description: string;
   status: boolean;
+  editable?: boolean | string;
 }
 
 export default function Materials() {
@@ -47,6 +48,10 @@ export default function Materials() {
   const [description, setDescription] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const isNotEditable =
+    selectedMaterial?.editable === false ||
+    selectedMaterial?.editable === "false";
 
   useEffect(() => {
     fetchMaterials();
@@ -328,6 +333,10 @@ export default function Materials() {
                               variant="primary"
                               className="bg-blue-600 hover:bg-blue-700"
                               onClick={() => openEditModal(material)}
+                              disabled={
+                                material.editable === false ||
+                                material.editable === "false"
+                              }
                             >
                               Edit
                             </Button>
@@ -336,6 +345,10 @@ export default function Materials() {
                               variant="primary"
                               className="bg-gray-500 hover:bg-gray-600"
                               onClick={() => openDeleteModal(material)}
+                              disabled={
+                                material.editable === false ||
+                                material.editable === "false"
+                              }
                             >
                               Deactivate
                             </Button>
@@ -519,6 +532,7 @@ export default function Materials() {
               size="sm"
               variant="outline"
               onClick={closeAllModals}
+              disabled={isNotEditable}
             >
               Cancel
             </Button>
@@ -527,7 +541,7 @@ export default function Materials() {
               variant="primary"
               className="bg-red-500 hover:bg-red-600"
               onClick={handleDelete}
-              disabled={submitting}
+              disabled={submitting || isNotEditable}
             >
               Deactivate
             </Button>

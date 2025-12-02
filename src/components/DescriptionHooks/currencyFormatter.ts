@@ -14,5 +14,5 @@ export function formatPeso(value: number | string | null | undefined): string {
     maximumFractionDigits: 2,
   });
 
-  return `₱${formatted}`;
+  return `₱ ${formatted}`;
 }

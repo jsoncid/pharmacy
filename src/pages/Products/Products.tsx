@@ -18,7 +18,6 @@ import { Modal } from "../../components/ui/modal";
 import { useModal } from "../../hooks/useModal";
 import ProductDescriptionDetails from "../../components/DescriptionHooks/ProductDescriptionDetails";
 import Select from "../../components/form/Select";
-import SearchableSelect from "../../components/form/SearchableSelect";
 import SearchableSelectWithAdd from "../../components/form/SearchableSelectWithAdd";
 
 const databases = new Databases(client);
@@ -619,6 +618,10 @@ export default function ProductsLanding() {
 
     // When Drugs category is selected, drug-related fields are required
     if (category === "6921b34200391101bcf0") {
+      if (!trimmedDosageStrenght) {
+        setFormError("Dosage strength is required.");
+        return;
+      }
       if (!atcCodeNa && !atcCodeId) {
         setFormError("ATC Code is required unless marked N/A.");
         return;

@@ -27,6 +27,7 @@ interface CapacityVolume {
   $updatedAt: string;
   description: string;
   status: boolean;
+  editable?: boolean | string;
 }
 
 export default function CapacityVolumes() {
@@ -47,6 +48,10 @@ export default function CapacityVolumes() {
   const [description, setDescription] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const isNotEditable =
+    selectedCapacityVolume?.editable === false ||
+    selectedCapacityVolume?.editable === "false";
 
   useEffect(() => {
     fetchCapacityVolumes();
@@ -337,6 +342,10 @@ export default function CapacityVolumes() {
                               variant="primary"
                               className="bg-blue-600 hover:bg-blue-700"
                               onClick={() => openEditModal(record)}
+                              disabled={
+                                record.editable === false ||
+                                record.editable === "false"
+                              }
                             >
                               Edit
                             </Button>
@@ -345,6 +354,10 @@ export default function CapacityVolumes() {
                               variant="primary"
                               className="bg-gray-500 hover:bg-gray-600"
                               onClick={() => openDeleteModal(record)}
+                              disabled={
+                                record.editable === false ||
+                                record.editable === "false"
+                              }
                             >
                               Deactivate
                             </Button>
@@ -530,6 +543,7 @@ export default function CapacityVolumes() {
               size="sm"
               variant="outline"
               onClick={closeAllModals}
+              disabled={isNotEditable}
             >
               Cancel
             </Button>
@@ -538,7 +552,7 @@ export default function CapacityVolumes() {
               variant="primary"
               className="bg-red-500 hover:bg-red-600"
               onClick={handleDelete}
-              disabled={submitting}
+              disabled={submitting || isNotEditable}
             >
               Deactivate
             </Button>

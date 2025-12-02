@@ -26,6 +26,7 @@ interface Pharmacological {
   $updatedAt: string;
   description: string;
   status: boolean;
+  editable?: boolean | string;
 }
 
 export default function Pharmacologicals() {
@@ -48,6 +49,10 @@ export default function Pharmacologicals() {
   const [description, setDescription] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const isNotEditable =
+    selectedPharmacological?.editable === false ||
+    selectedPharmacological?.editable === "false";
 
   useEffect(() => {
     fetchPharmacologicals();
@@ -301,9 +306,9 @@ export default function Pharmacologicals() {
               type="text"
               placeholder="Search pharmacologicals..."
               value={searchQuery}
-              onChange={(
-                e: React.ChangeEvent<HTMLInputElement>,
-              ) => setSearchQuery(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setSearchQuery(e.target.value)
+              }
             />
           </div>
         </div>
@@ -354,6 +359,10 @@ export default function Pharmacologicals() {
                               variant="primary"
                               className="bg-blue-600 hover:bg-blue-700"
                               onClick={() => openEditModal(pharmacological)}
+                              disabled={
+                                pharmacological.editable === false ||
+                                pharmacological.editable === "false"
+                              }
                             >
                               Edit
                             </Button>
@@ -362,6 +371,10 @@ export default function Pharmacologicals() {
                               variant="primary"
                               className="bg-gray-500 hover:bg-gray-600"
                               onClick={() => openDeleteModal(pharmacological)}
+                              disabled={
+                                pharmacological.editable === false ||
+                                pharmacological.editable === "false"
+                              }
                             >
                               Deactivate
                             </Button>
@@ -436,9 +449,9 @@ export default function Pharmacologicals() {
                 id="pharmacological-description"
                 type="text"
                 value={description}
-                onChange={(
-                  e: React.ChangeEvent<HTMLInputElement>,
-                ) => setDescription(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setDescription(e.target.value)
+                }
                 placeholder="Short description of pharmacological property"
               />
             </div>
@@ -493,9 +506,9 @@ export default function Pharmacologicals() {
                 id="edit-pharmacological-description"
                 type="text"
                 value={description}
-                onChange={(
-                  e: React.ChangeEvent<HTMLInputElement>,
-                ) => setDescription(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setDescription(e.target.value)
+                }
                 placeholder="Short description of pharmacological property"
               />
             </div>
@@ -550,6 +563,7 @@ export default function Pharmacologicals() {
               size="sm"
               variant="outline"
               onClick={closeAllModals}
+              disabled={isNotEditable}
             >
               Cancel
             </Button>
@@ -558,7 +572,7 @@ export default function Pharmacologicals() {
               variant="primary"
               className="bg-red-500 hover:bg-red-600"
               onClick={handleDelete}
-              disabled={submitting}
+              disabled={submitting || isNotEditable}
             >
               Deactivate
             </Button>
