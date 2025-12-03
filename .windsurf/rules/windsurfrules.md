@@ -76,3 +76,51 @@ trigger: always_on
      - Usability → `USABILITY_COLLECTION_ID` → `setUsabilitiesData` / `setUsabilities`.
      - Strap → `STRAP_COLLECTION_ID` → `setStrapsData` / `setStraps`.
      - Content → `CONTENT_COLLECTION_ID` → `setContentsData` / `setContents`.
+
+
+7. **Code Generation Comment Rules**
+
+7.1. **When to add comments**
+   - For any newly generated components, pages, hooks, or utilities, include short comments **when requested by the user** to explain:
+     - The overall purpose of the file or component.
+     - Non-obvious business rules or domain-specific logic.
+     - Complex conditions, data transformations, or side effects.
+
+7.2. **Comment style**
+   - Keep comments **concise and high-signal**, avoiding restating obvious code.
+   - Prefer comments **above** the relevant block (functions, handlers, effects) instead of inline at the end of lines.
+
+7.3. **Framework-specific notes**
+   - **React/TSX**:
+     - Optionally add a brief file-level comment describing the component’s role in the UI or workflow.
+     - Add short comments above key `useEffect` hooks, major event handlers, and complex JSX sections.
+
+7.4. **Consistency**
+   - Follow existing project terminology and patterns in comments.
+   - Update or remove comments when code changes so they do not become misleading.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -20,11 +20,14 @@ import { useAuth } from "../../context/AuthContext";
 import InputField from "../../components/form/input/InputField";
 import Form from "../../components/form/Form";
 import Label from "../../components/form/Label";
+import Alert from "../../components/ui/alert/Alert";
 
 const databases = new Databases(client);
 const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
 const DELIVERY_ITEMS_COLLECTION_ID =
   import.meta.env.VITE_APPWRITE_COLLECTION_DELIVERY_ITEMS;
+const DELIVERIES_COLLECTION_ID =
+  import.meta.env.VITE_APPWRITE_COLLECTION_DELIVERIES;
 const PRODUCT_DESCRIPTIONS_COLLECTION_ID =
   import.meta.env.VITE_APPWRITE_COLLECTION_PRODUCT_DESCRIPTIONS;
 const UNITS_COLLECTION_ID = import.meta.env.VITE_APPWRITE_COLLECTION_UNITS;
@@ -116,6 +119,7 @@ export default function Inventories() {
   const [items, setItems] = useState<DeliveryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [products, setProducts] = useState<ProductDescription[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [units, setUnits] = useState<UnitOption[]>([]);
@@ -333,6 +337,7 @@ export default function Inventories() {
                   [
                     Query.equal("inventories", inv.$id),
                     Query.equal("units", unitId),
+                    Query.equal("conversion_level", 1),
                     Query.orderDesc("$createdAt"),
                   ],
                 ),
@@ -470,12 +475,27 @@ export default function Inventories() {
 
   const handleConfirmMergeForDetail = async (inventoryDetailId: string) => {
     if (!mergeContext) return;
+    if (!user) {
+      const message = "Unable to determine current user.";
+      setMergeError(message);
+      setError(message);
+      return;
+    }
 
-    const { item, inventoryDetails } = mergeContext;
+    const { item, inventoryDetails, inventories } = mergeContext;
 
     const detail = inventoryDetails.find(
       (d: any) => (d as any).$id === inventoryDetailId,
     ) as any;
+
+    const inventory = inventories.find(
+      (inv: any) => (inv as any).$id === (detail as any).inventories,
+    ) as any;
+
+    const existingDeliveryItems =
+      inventory && Array.isArray(inventory.delivery_items)
+        ? inventory.delivery_items
+        : [];
 
     const currentBalance =
       (detail && typeof detail.running_balance === "number"
@@ -486,6 +506,7 @@ export default function Inventories() {
       setApprovingId(item.$id);
       setMergeError(null);
       setError(null);
+      setSuccessMessage(null);
 
       const baseQty = item.qty ?? 0;
       const extraQty = item.qty_extra ?? 0;
@@ -496,6 +517,56 @@ export default function Inventories() {
       try {
         const tx = await databases.createTransaction({ ttl: 60 });
         transactionId = (tx as any).$id as string;
+
+        await databases.updateDocument({
+          databaseId: DATABASE_ID,
+          collectionId: DELIVERY_ITEMS_COLLECTION_ID,
+          documentId: item.$id,
+          data: {
+            status: false,
+            editable: false,
+            is_approved: true,
+          } as any,
+          transactionId,
+        });
+
+        if (item.deliveries) {
+          const remainingUnapproved = await databases.listDocuments(
+            DATABASE_ID,
+            DELIVERY_ITEMS_COLLECTION_ID,
+            [
+              Query.equal("deliveries", item.deliveries),
+              Query.equal("status", true),
+              Query.equal("is_approved", false),
+            ],
+          );
+
+          if (remainingUnapproved.total === 1) {
+            await databases.updateDocument({
+              databaseId: DATABASE_ID,
+              collectionId: DELIVERIES_COLLECTION_ID,
+              documentId: item.deliveries,
+              data: {
+                status: false,
+              } as any,
+              transactionId,
+            });
+          }
+        }
+
+        const today = new Date().toISOString().split("T")[0];
+        const deliveryItemsValue = `${item.$id};${today};${user.$id}`;
+
+        //update inventories
+        await databases.updateDocument({
+          databaseId: DATABASE_ID,
+          collectionId: INVENTORIES_COLLECTION_ID,
+          documentId: detail.inventories,
+          data: {
+            delivery_items: [...existingDeliveryItems, deliveryItemsValue],
+          },
+          transactionId,
+        });
 
         await databases.updateDocument({
           databaseId: DATABASE_ID,
@@ -696,6 +767,8 @@ export default function Inventories() {
             );
           }
 
+          //here
+
           if (updates.length > 0) {
             await Promise.all(updates);
           }
@@ -725,6 +798,7 @@ export default function Inventories() {
       setItems((prev) => prev.filter((i) => i.$id !== item.$id));
       mergeModal.closeModal();
       setMergeContext(null);
+      setSuccessMessage("Inventory merged successfully.");
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to merge inventory data.";
@@ -781,6 +855,9 @@ export default function Inventories() {
         const tx = await databases.createTransaction({ ttl: 60 });
         transactionId = (tx as any).$id as string;
 
+        const today = new Date().toISOString().split("T")[0];
+        const deliveryItemsValue = `${selectedItem.$id};${today};${user.$id}`;
+
         //create inventories
         const inventoryDoc = await databases.createDocument({
           databaseId: DATABASE_ID,
@@ -788,7 +865,7 @@ export default function Inventories() {
           documentId: ID.unique(),
           data: {
             productDescriptions: selectedItem.productDescriptions ?? null,
-            delivery_items: [selectedItem.$id],
+            delivery_items: [deliveryItemsValue],
             date_expiry: selectedItem.date_expiry ?? null,
             lot_no: selectedItem.lot_no ?? null,
             batch_no: selectedItem.batch_no ?? null,
@@ -849,15 +926,6 @@ export default function Inventories() {
         throw innerErr;
       }
 
-      // await databases.updateDocument({
-      //   databaseId: DATABASE_ID,
-      //   collectionId: DELIVERY_ITEMS_COLLECTION_ID,
-      //   documentId: selectedItem.$id,
-      //   data: {
-      //     is_approved: true,
-      //     status: false,
-      //   },
-      // });
       setItems((prev) => prev.filter((i) => i.$id !== selectedItem.$id));
       approveModal.closeModal();
       setSelectedItem(null);
@@ -899,6 +967,16 @@ export default function Inventories() {
         <p className="text-sm text-gray-600 dark:text-gray-300">
           List of Delivery/Incomming Stocks
         </p>
+
+        {successMessage && (
+          <Alert
+            variant="success"
+            title="Inventory merge successful"
+            message={successMessage}
+            closable
+            onClose={() => setSuccessMessage(null)}
+          />
+        )}
 
         {error && <p className="text-sm text-error-500">{error}</p>}
 

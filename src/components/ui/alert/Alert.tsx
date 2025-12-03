@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router";
 
 interface AlertProps {
@@ -7,6 +8,8 @@ interface AlertProps {
   showLink?: boolean; // Whether to show the "Learn More" link
   linkHref?: string; // Link URL
   linkText?: string; // Link text
+  closable?: boolean;
+  onClose?: () => void;
 }
 
 const Alert: React.FC<AlertProps> = ({
@@ -16,6 +19,8 @@ const Alert: React.FC<AlertProps> = ({
   showLink = false,
   linkHref = "#",
   linkText = "Learn more",
+  closable = false,
+  onClose,
 }) => {
   // Tailwind classes for each variant
   const variantClasses = {
@@ -111,31 +116,54 @@ const Alert: React.FC<AlertProps> = ({
     ),
   };
 
+  const [visible, setVisible] = useState(true);
+
+  if (!visible) {
+    return null;
+  }
+
   return (
     <div
       className={`rounded-xl border p-4 ${variantClasses[variant].container}`}
     >
       <div className="flex items-start gap-3">
-        <div className={`-mt-0.5 ${variantClasses[variant].icon}`}>
-          {icons[variant]}
+        <div className="flex items-start gap-3 flex-1">
+          <div className={`-mt-0.5 ${variantClasses[variant].icon}`}>
+            {icons[variant]}
+          </div>
+
+          <div>
+            <h4 className="mb-1 text-sm font-semibold text-gray-800 dark:text-white/90">
+              {title}
+            </h4>
+
+            <p className="text-sm text-gray-500 dark:text-gray-400">{message}</p>
+
+            {showLink && (
+              <Link
+                to={linkHref}
+                className="inline-block mt-3 text-sm font-medium text-gray-500 underline dark:text-gray-400"
+              >
+                {linkText}
+              </Link>
+            )}
+          </div>
         </div>
 
-        <div>
-          <h4 className="mb-1 text-sm font-semibold text-gray-800 dark:text-white/90">
-            {title}
-          </h4>
-
-          <p className="text-sm text-gray-500 dark:text-gray-400">{message}</p>
-
-          {showLink && (
-            <Link
-              to={linkHref}
-              className="inline-block mt-3 text-sm font-medium text-gray-500 underline dark:text-gray-400"
-            >
-              {linkText}
-            </Link>
-          )}
-        </div>
+        {closable && (
+          <button
+            type="button"
+            onClick={() => {
+              setVisible(false);
+              if (onClose) {
+                onClose();
+              }
+            }}
+            className="ml-2 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          >
+            ✕
+          </button>
+        )}
       </div>
     </div>
   );
