@@ -39,7 +39,7 @@ export default function UsersPage() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const response = await functionsAPI.createExecution('692138640030e8b19936', '', false, '/users', ExecutionMethod.GET, {});
+      const response = await functionsAPI.createExecution(import.meta.env.VITE_APPWRITE_FUNCTION_USERS_ID, '', false, '/users', ExecutionMethod.GET, {});
       const result = JSON.parse(response.responseBody);
       if (result.success) {
         setUsersList(result.data || []);
