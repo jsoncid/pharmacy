@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Databases, Query, ID } from "appwrite";
+import { Databases, Query, ID, Functions, ExecutionMethod } from "appwrite";
 import client from "../../lib/appwrite";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -18,11 +18,13 @@ import { Modal } from "../../components/ui/modal";
 import { useModal } from "../../hooks/useModal";
 import { useAuth } from "../../context/AuthContext";
 import InputField from "../../components/form/input/InputField";
+import SearchableSelect from "../../components/form/SearchableSelect";
 import Form from "../../components/form/Form";
 import Label from "../../components/form/Label";
 import Alert from "../../components/ui/alert/Alert";
 
 const databases = new Databases(client);
+const functionsAPI = new Functions(client);
 const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
 const DELIVERY_ITEMS_COLLECTION_ID =
   import.meta.env.VITE_APPWRITE_COLLECTION_DELIVERY_ITEMS;
@@ -115,6 +117,12 @@ interface UnitOption {
   status: boolean;
 }
 
+interface UserOption {
+  $id: string;
+  name: string;
+  email: string;
+}
+
 export default function Inventories() {
   const [items, setItems] = useState<DeliveryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -134,9 +142,12 @@ export default function Inventories() {
   const [contentsData, setContentsData] = useState<UnitOption[]>([]);
   const [dosageForms, setDosageForms] = useState<UnitOption[]>([]);
   const [containers, setContainers] = useState<UnitOption[]>([]);
+  const [medRepUsers, setMedRepUsers] = useState<UserOption[]>([]);
+  const [medRepUsersLoading, setMedRepUsersLoading] = useState(false);
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const approveModal = useModal(false);
   const mergeModal = useModal(false);
+  const medRepModal = useModal(false);
   const [selectedItem, setSelectedItem] = useState<DeliveryItem | null>(null);
   const [approveError, setApproveError] = useState<string | null>(null);
   const [sellingPrice, setSellingPrice] = useState<string>("");
@@ -149,6 +160,15 @@ export default function Inventories() {
     inventories: any[];
     detailPrices: Record<string, number | null>;
   } | null>(null);
+  const [medRepValue, setMedRepValue] = useState<string>("");
+  const [selectedInventoryDetailIdForMerge, setSelectedInventoryDetailIdForMerge] =
+    useState<string | null>(null);
+  const [medRepIncentive, setMedRepIncentive] = useState<string>("");
+  const [medRepIncentiveValue, setMedRepIncentiveValue] = useState<string>("");
+  const [medRepFormError, setMedRepFormError] = useState<string | null>(null);
+  const [medRepMode, setMedRepMode] = useState<"merge" | "approve" | null>(
+    null,
+  );
   const [mergeError, setMergeError] = useState<string | null>(null);
   const { user } = useAuth();
 
@@ -282,11 +302,38 @@ export default function Inventories() {
       }
     };
 
+    const fetchMedRepUsers = async () => {
+      try {
+        setMedRepUsersLoading(true);
+        const response = await functionsAPI.createExecution(
+          import.meta.env.VITE_APPWRITE_FUNCTION_USERS_ID,
+          "",
+          false,
+          "/users",
+          ExecutionMethod.GET,
+          {},
+        );
+        const result = JSON.parse(response.responseBody);
+        if (result.success) {
+          setMedRepUsers((result.data || []) as UserOption[]);
+        } else {
+          console.error("Error fetching med rep users:", result.error);
+          setMedRepUsers([]);
+        }
+      } catch (err) {
+        console.error("Error fetching med rep users:", err);
+        setMedRepUsers([]);
+      } finally {
+        setMedRepUsersLoading(false);
+      }
+    };
+
     void fetchItems();
     void fetchProducts();
     void fetchCategories();
     void fetchUnits();
     void fetchProductLookups();
+    void fetchMedRepUsers();
   }, []);
 
   const formatDate = (value?: string) => {
@@ -473,7 +520,118 @@ export default function Inventories() {
     }
   };
 
-  const handleConfirmMergeForDetail = async (inventoryDetailId: string) => {
+  const handleOpenMedRepModal = (detail: any) => {
+    setSelectedInventoryDetailIdForMerge(detail.$id as string);
+    const existingMedRep =
+      typeof (detail as any).med_rep === "string" ? (detail as any).med_rep : "";
+    setMedRepValue(existingMedRep);
+    setMedRepIncentive("");
+    setMedRepIncentiveValue("");
+    setMedRepFormError(null);
+    setMedRepMode("merge");
+    mergeModal.closeModal();
+    medRepModal.openModal();
+  };
+
+  const handleOpenMedRepForApprove = () => {
+    if (!selectedItem) return;
+    setMedRepValue("");
+    setMedRepIncentive("");
+    setMedRepIncentiveValue("");
+    setMedRepFormError(null);
+    setMedRepMode("approve");
+    approveModal.closeModal();
+    medRepModal.openModal();
+  };
+
+  const handleCloseMedRepModal = () => {
+    medRepModal.closeModal();
+    if (medRepMode === "merge") {
+      mergeModal.openModal();
+    } else if (medRepMode === "approve") {
+      approveModal.openModal();
+    }
+    setSelectedInventoryDetailIdForMerge(null);
+    setMedRepValue("");
+    setMedRepMode(null);
+  };
+
+  const validateMedRepForm = () => {
+    const hasMedRep = medRepValue.trim() !== "";
+
+    if (!hasMedRep) {
+      setMedRepFormError(null);
+      return true;
+    }
+
+    if (!medRepIncentive.trim()) {
+      setMedRepFormError("Incentive type is required.");
+      return false;
+    }
+
+    const valueStr = medRepIncentiveValue.trim();
+    const valueNum = valueStr ? Number(valueStr) : NaN;
+
+    if (!Number.isFinite(valueNum) || valueNum < 0) {
+      setMedRepFormError("Incentive value must be 0 or greater.");
+      return false;
+    }
+
+    setMedRepFormError(null);
+    return true;
+  };
+
+  const handleConfirmMedRepAndMerge = () => {
+    if (!validateMedRepForm()) return;
+    if (!selectedInventoryDetailIdForMerge) return;
+    const inventoryDetailId = selectedInventoryDetailIdForMerge;
+    const hasMedRep = medRepValue.trim() !== "";
+    const medRep = hasMedRep ? medRepValue : undefined;
+    const incentiveType = hasMedRep && medRepIncentive.trim() ? medRepIncentive.trim() : undefined;
+    const incentiveValue =
+      hasMedRep && medRepIncentiveValue.trim()
+        ? Number(medRepIncentiveValue.trim())
+        : undefined;
+    medRepModal.closeModal();
+    setSelectedInventoryDetailIdForMerge(null);
+    setMedRepValue("");
+    setMedRepIncentive("");
+    setMedRepIncentiveValue("");
+    setMedRepMode(null);
+    setMedRepFormError(null);
+    void handleConfirmMergeForDetail(
+      inventoryDetailId,
+      medRep,
+      incentiveType,
+      incentiveValue,
+    );
+  };
+
+  const handleConfirmMedRepAndApprove = () => {
+    if (!validateMedRepForm()) return;
+    if (!selectedItem) return;
+    const hasMedRep = medRepValue.trim() !== "";
+    const medRep = hasMedRep ? medRepValue : undefined;
+    const incentiveType = hasMedRep && medRepIncentive.trim() ? medRepIncentive.trim() : undefined;
+    const incentiveValue =
+      hasMedRep && medRepIncentiveValue.trim()
+        ? Number(medRepIncentiveValue.trim())
+        : undefined;
+    medRepModal.closeModal();
+    setMedRepValue("");
+    setMedRepIncentive("");
+    setMedRepIncentiveValue("");
+    setMedRepMode(null);
+    setMedRepFormError(null);
+    void handleConfirmApprove(medRep, incentiveType, incentiveValue);
+  };
+
+  const handleConfirmMergeForDetail = async (
+    inventoryDetailId: string,
+    medRepValueParam?: string,
+    medRepIncentiveParam?: string,
+    medRepIncentiveValueParam?: number,
+  ) => {
     if (!mergeContext) return;
     if (!user) {
       const message = "Unable to determine current user.";
@@ -568,13 +726,56 @@ export default function Inventories() {
           transactionId,
         });
 
+        const hasNewMedRep =
+          typeof medRepValueParam === "string" &&
+          medRepValueParam.trim() !== "";
+
+        const medRepToSave = hasNewMedRep
+          ? medRepValueParam.trim()
+          : (detail && typeof (detail as any).med_rep === "string"
+              ? ((detail as any).med_rep as string)
+              : undefined);
+
+        const medRepIncentiveToSave = hasNewMedRep
+          ? medRepIncentiveParam && medRepIncentiveParam.trim()
+          : (detail && typeof (detail as any).med_rep_incentive === "string"
+              ? ((detail as any).med_rep_incentive as string)
+              : undefined);
+
+        const medRepIncentiveValueToSave = hasNewMedRep
+          ? typeof medRepIncentiveValueParam === "number" &&
+            Number.isFinite(medRepIncentiveValueParam) &&
+            medRepIncentiveValueParam >= 0
+            ? medRepIncentiveValueParam
+            : undefined
+          : (detail &&
+              typeof (detail as any).med_rep_incentive_value === "number" &&
+              Number.isFinite((detail as any).med_rep_incentive_value)
+              ? ((detail as any).med_rep_incentive_value as number)
+              : undefined);
+
+        const inventoryDetailUpdateData: any = {
+          running_balance: runningBalance,
+        };
+
+        if (medRepToSave !== undefined) {
+          inventoryDetailUpdateData.med_rep = medRepToSave;
+        }
+
+        if (medRepIncentiveToSave !== undefined) {
+          inventoryDetailUpdateData.med_rep_incentive = medRepIncentiveToSave;
+        }
+
+        if (medRepIncentiveValueToSave !== undefined) {
+          inventoryDetailUpdateData.med_rep_incentive_value =
+            medRepIncentiveValueToSave;
+        }
+
         await databases.updateDocument({
           databaseId: DATABASE_ID,
           collectionId: INVENTORY_DETAILS_COLLECTION_ID,
           documentId: inventoryDetailId,
-          data: {
-            running_balance: runningBalance,
-          },
+          data: inventoryDetailUpdateData,
           transactionId,
         });
 
@@ -767,7 +968,7 @@ export default function Inventories() {
             );
           }
 
-          //here
+          
 
           if (updates.length > 0) {
             await Promise.all(updates);
@@ -824,10 +1025,19 @@ export default function Inventories() {
         ? String(item.price_delivery)
         : "",
     );
+    setMedRepValue("");
+    setMedRepIncentive("");
+    setMedRepIncentiveValue("");
+    setMedRepFormError(null);
+    setMedRepMode("approve");
     approveModal.openModal();
   };
 
-  const handleConfirmApprove = async () => {
+  const handleConfirmApprove = async (
+    medRepValueParam?: string,
+    medRepIncentiveParam?: string,
+    medRepIncentiveValueParam?: number,
+  ) => {
     if (!selectedItem) return;
     if (!user) {
       const message = "Unable to determine current user.";
@@ -880,18 +1090,281 @@ export default function Inventories() {
 
         const inventoryDetailsId = ID.unique();
 
+        const medRepToSave =
+          typeof medRepValueParam === "string" &&
+          medRepValueParam.trim() !== ""
+            ? medRepValueParam.trim()
+            : undefined;
+
+        const medRepIncentiveToSave =
+          typeof medRepIncentiveParam === "string" &&
+          medRepIncentiveParam.trim() !== ""
+            ? medRepIncentiveParam.trim()
+            : undefined;
+
+        const medRepIncentiveValueToSave =
+          typeof medRepIncentiveValueParam === "number" &&
+          Number.isFinite(medRepIncentiveValueParam) &&
+          medRepIncentiveValueParam >= 0
+            ? medRepIncentiveValueParam
+            : undefined;
+
+        const inventoryDetailsData: any = {
+          inventories: (inventoryDoc as any).$id,
+          units: selectedItem.stocking_unit ?? null,
+          running_balance: runningBalance,
+          conversion_level: 1,
+        };
+
+        if (medRepToSave !== undefined) {
+          inventoryDetailsData.med_rep = medRepToSave;
+        }
+
+        if (medRepIncentiveToSave !== undefined) {
+          inventoryDetailsData.med_rep_incentive = medRepIncentiveToSave;
+        }
+
+        if (medRepIncentiveValueToSave !== undefined) {
+          inventoryDetailsData.med_rep_incentive_value =
+            medRepIncentiveValueToSave;
+        }
+
         await databases.createDocument({
           databaseId: DATABASE_ID,
           collectionId: INVENTORY_DETAILS_COLLECTION_ID,
           documentId: inventoryDetailsId,
-          data: {
-            inventories: (inventoryDoc as any).$id,
-            units: selectedItem.stocking_unit ?? null,
-            running_balance: runningBalance,
-            conversion_level: 1,
-          },
+          data: inventoryDetailsData,
           transactionId,
         });
+
+        const product = products.find(
+          (p) => p.$id === selectedItem.productDescriptions,
+        );
+
+        if (product) {
+          const atcCodeId = product.atcCodes;
+          const pharmacologicalId = product.pharmacologicals;
+          const unitDoseId = product.unitDoses;
+          const dosageFormId = product.dosageForms;
+          const containerId = product.containers;
+          const materialId = product.materials;
+          const sizeId = product.sizes;
+          const capacityVolumeId = product.capacityVolumes;
+          const sterilityId = product.sterilities;
+          const usabilityId = product.usabilities;
+          const contentId = product.contents;
+          const strapId = product.straps;
+
+          const updates: Promise<unknown>[] = [];
+
+          if (atcCodeId) {
+            updates.push(
+              databases.updateDocument({
+                databaseId: DATABASE_ID,
+                collectionId: ATC_CODE_COLLECTION_ID,
+                documentId: atcCodeId,
+                data: {
+                  editable: false,
+                } as any,
+                transactionId,
+              }),
+            );
+          }
+
+          if (pharmacologicalId) {
+            updates.push(
+              databases.updateDocument({
+                databaseId: DATABASE_ID,
+                collectionId: PHARMACOLOGICAL_COLLECTION_ID,
+                documentId: pharmacologicalId,
+                data: {
+                  editable: false,
+                } as any,
+                transactionId,
+              }),
+            );
+          }
+
+          if (unitDoseId) {
+            updates.push(
+              databases.updateDocument({
+                databaseId: DATABASE_ID,
+                collectionId: UNIT_DOSE_COLLECTION_ID,
+                documentId: unitDoseId,
+                data: {
+                  editable: false,
+                } as any,
+                transactionId,
+              }),
+            );
+          }
+
+          if (dosageFormId) {
+            updates.push(
+              databases.updateDocument({
+                databaseId: DATABASE_ID,
+                collectionId: DOSAGE_FORM_COLLECTION_ID,
+                documentId: dosageFormId,
+                data: {
+                  editable: false,
+                } as any,
+                transactionId,
+              }),
+            );
+          }
+
+          if (containerId) {
+            updates.push(
+              databases.updateDocument({
+                databaseId: DATABASE_ID,
+                collectionId: CONTAINER_COLLECTION_ID,
+                documentId: containerId,
+                data: {
+                  editable: false,
+                } as any,
+                transactionId,
+              }),
+            );
+          }
+
+          if (materialId) {
+            updates.push(
+              databases.updateDocument({
+                databaseId: DATABASE_ID,
+                collectionId: MATERIAL_COLLECTION_ID,
+                documentId: materialId,
+                data: {
+                  editable: false,
+                } as any,
+                transactionId,
+              }),
+            );
+          }
+
+          if (sizeId) {
+            updates.push(
+              databases.updateDocument({
+                databaseId: DATABASE_ID,
+                collectionId: SIZE_COLLECTION_ID,
+                documentId: sizeId,
+                data: {
+                  editable: false,
+                } as any,
+                transactionId,
+              }),
+            );
+          }
+
+          if (capacityVolumeId) {
+            updates.push(
+              databases.updateDocument({
+                databaseId: DATABASE_ID,
+                collectionId: CAPACITY_VOLUME_COLLECTION_ID,
+                documentId: capacityVolumeId,
+                data: {
+                  editable: false,
+                } as any,
+                transactionId,
+              }),
+            );
+          }
+
+          if (sterilityId) {
+            updates.push(
+              databases.updateDocument({
+                databaseId: DATABASE_ID,
+                collectionId: STERILITY_COLLECTION_ID,
+                documentId: sterilityId,
+                data: {
+                  editable: false,
+                } as any,
+                transactionId,
+              }),
+            );
+          }
+
+          if (usabilityId) {
+            updates.push(
+              databases.updateDocument({
+                databaseId: DATABASE_ID,
+                collectionId: USABILITY_COLLECTION_ID,
+                documentId: usabilityId,
+                data: {
+                  editable: false,
+                } as any,
+                transactionId,
+              }),
+            );
+          }
+
+          if (contentId) {
+            updates.push(
+              databases.updateDocument({
+                databaseId: DATABASE_ID,
+                collectionId: CONTENT_COLLECTION_ID,
+                documentId: contentId,
+                data: {
+                  editable: false,
+                } as any,
+                transactionId,
+              }),
+            );
+          }
+
+          if (strapId) {
+            updates.push(
+              databases.updateDocument({
+                databaseId: DATABASE_ID,
+                collectionId: STRAP_COLLECTION_ID,
+                documentId: strapId,
+                data: {
+                  editable: false,
+                } as any,
+                transactionId,
+              }),
+            );
+          }
+
+          if (updates.length > 0) {
+            await Promise.all(updates);
+          }
+        }
+
+        await databases.updateDocument({
+          databaseId: DATABASE_ID,
+          collectionId: DELIVERY_ITEMS_COLLECTION_ID,
+          documentId: selectedItem.$id,
+          data: {
+            status: false,
+            editable: false,
+            is_approved: true,
+          } as any,
+          transactionId,
+        });
+
+        if (selectedItem.deliveries) {
+          const remainingUnapproved = await databases.listDocuments(
+            DATABASE_ID,
+            DELIVERY_ITEMS_COLLECTION_ID,
+            [
+              Query.equal("deliveries", selectedItem.deliveries),
+              Query.equal("status", true),
+              Query.equal("is_approved", false),
+            ],
+          );
+
+          if (remainingUnapproved.total === 1) {
+            await databases.updateDocument({
+              databaseId: DATABASE_ID,
+              collectionId: DELIVERIES_COLLECTION_ID,
+              documentId: selectedItem.deliveries,
+              data: {
+                status: false,
+              } as any,
+              transactionId,
+            });
+          }
+        }
 
         //create selling_prices
         await databases.createDocument({
@@ -927,6 +1400,7 @@ export default function Inventories() {
       }
 
       setItems((prev) => prev.filter((i) => i.$id !== selectedItem.$id));
+      setSuccessMessage("Inventory action successful.");
       approveModal.closeModal();
       setSelectedItem(null);
     } catch (err) {
@@ -963,7 +1437,6 @@ export default function Inventories() {
       <PageBreadcrumb pageTitle="Inbound Stocks" />
 
       <div className="space-y-6">
-
         <p className="text-sm text-gray-600 dark:text-gray-300">
           List of Delivery/Incomming Stocks
         </p>
@@ -971,7 +1444,7 @@ export default function Inventories() {
         {successMessage && (
           <Alert
             variant="success"
-            title="Inventory merge successful"
+            title="Inventory create new successful"
             message={successMessage}
             closable
             onClose={() => setSuccessMessage(null)}
@@ -1244,6 +1717,24 @@ export default function Inventories() {
                                       isHeader
                                       className="px-3 py-2 text-xs font-medium text-gray-500 text-start dark:text-gray-400"
                                     >
+                                      Med Rep
+                                    </TableCell>
+                                    <TableCell
+                                      isHeader
+                                      className="px-3 py-2 text-xs font-medium text-gray-500 text-start dark:text-gray-400"
+                                    >
+                                      Type
+                                    </TableCell>
+                                    <TableCell
+                                      isHeader
+                                      className="px-3 py-2 text-xs font-medium text-gray-500 text-start dark:text-gray-400"
+                                    >
+                                      Value
+                                    </TableCell>
+                                    <TableCell
+                                      isHeader
+                                      className="px-3 py-2 text-xs font-medium text-gray-500 text-start dark:text-gray-400"
+                                    >
                                       Actions
                                     </TableCell>
                                   </TableRow>
@@ -1262,6 +1753,36 @@ export default function Inventories() {
                                       mergeContext.detailPrices[detail.$id] != null
                                         ? mergeContext.detailPrices[detail.$id]
                                         : null;
+
+                                    const medRepId =
+                                      typeof (detail as any).med_rep === "string"
+                                        ? ((detail as any).med_rep as string)
+                                        : "";
+                                    const medRepUser = medRepUsers.find(
+                                      (u) => u.$id === medRepId,
+                                    );
+                                    const medRepDisplay = medRepUser
+                                      ? `${medRepUser.name} (${medRepUser.email})`
+                                      : medRepId || "-";
+
+                                    const medRepIncentive =
+                                      typeof (detail as any).med_rep_incentive === "string"
+                                        ? ((detail as any).med_rep_incentive as string)
+                                        : "";
+                                    const medRepIncentiveLabel =
+                                      medRepIncentive === "percent"
+                                        ? "Percent"
+                                        : medRepIncentive === "amount"
+                                          ? "Amount"
+                                          : "-";
+
+                                    const medRepIncentiveValue =
+                                      typeof (detail as any).med_rep_incentive_value ===
+                                      "number"
+                                        ? ((detail as any)
+                                            .med_rep_incentive_value as number)
+                                        : null;
+
                                     return (
                                       <TableRow key={detail.$id}>
                                         <TableCell className="px-3 py-2 text-xs text-gray-700 dark:text-gray-200">
@@ -1276,6 +1797,17 @@ export default function Inventories() {
                                         <TableCell className="px-3 py-2 text-xs text-gray-700 dark:text-gray-200">
                                           {detailPrice != null
                                             ? formatPeso(detailPrice)
+                                            : "-"}
+                                        </TableCell>
+                                        <TableCell className="px-3 py-2 text-xs text-gray-700 dark:text-gray-200">
+                                          {medRepDisplay}
+                                        </TableCell>
+                                        <TableCell className="px-3 py-2 text-xs text-gray-700 dark:text-gray-200">
+                                          {medRepIncentiveLabel}
+                                        </TableCell>
+                                        <TableCell className="px-3 py-2 text-xs text-gray-700 dark:text-gray-200">
+                                          {medRepIncentiveValue != null
+                                            ? medRepIncentiveValue
                                             : "-"}
                                         </TableCell>
                                         <TableCell className="px-3 py-2 text-xs text-gray-700 dark:text-gray-200">
@@ -1322,6 +1854,98 @@ export default function Inventories() {
       </Modal>
 
       <Modal
+        isOpen={medRepModal.isOpen}
+        onClose={handleCloseMedRepModal}
+        className="max-w-md w-full p-6"
+      >
+        <Form
+          onSubmit={() => {
+            if (medRepMode === "merge") {
+              handleConfirmMedRepAndMerge();
+            } else if (medRepMode === "approve") {
+              handleConfirmMedRepAndApprove();
+            }
+          }}
+          className="space-y-4"
+        >
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Medical Representative Information
+            </h2>
+            <div className="space-y-2">
+              <Label htmlFor="med-rep">Name</Label>
+              {medRepUsersLoading ? (
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                  Loading users...
+                </p>
+              ) : medRepUsers.length === 0 ? (
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                  No users available
+                </p>
+              ) : (
+                <SearchableSelect
+                  options={medRepUsers.map((user) => ({
+                    value: user.$id,
+                    label: `${user.name} (${user.email})`,
+                  }))}
+                  placeholder="Select Med Rep"
+                  searchPlaceholder="Search user..."
+                  value={medRepValue}
+                  onChange={(value) => setMedRepValue(value)}
+                />
+              )}
+            </div>
+            {medRepValue.trim() !== "" && (
+              <div className="space-y-2">
+                <Label htmlFor="med-rep-incentive">Incentive Type</Label>
+                <select
+                  id="med-rep-incentive"
+                  className="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800"
+                  value={medRepIncentive}
+                  onChange={(e) => setMedRepIncentive(e.target.value)}
+                >
+                  <option value="">Select type</option>
+                  <option value="percent">Percent</option>
+                  <option value="amount">Amount</option>
+                </select>
+                <Label htmlFor="med-rep-incentive-value">Incentive Value (per sale)</Label>
+                <InputField
+                  id="med-rep-incentive-value"
+                  type="number"
+                  min="0"
+                  step={0.01}
+                  value={medRepIncentiveValue}
+                  onChange={(e) => setMedRepIncentiveValue(e.target.value)}
+                />
+              </div>
+            )}
+            {medRepFormError && (
+              <p className="text-sm text-error-500">{medRepFormError}</p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                type="button"
+                onClick={handleCloseMedRepModal}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                variant="primary"
+                className="bg-green-600 hover:bg-green-700"
+                type="submit"
+                disabled={approvingId !== null}
+              >
+                {medRepMode === "approve" ? "Continue Approve" : "Continue Merge"}
+              </Button>
+            </div>
+          </div>
+        </Form>
+      </Modal>
+
+      <Modal
         isOpen={approveModal.isOpen}
         onClose={handleCloseApproveModal}
         className="max-w-md w-full p-6"
@@ -1359,7 +1983,7 @@ export default function Inventories() {
               size="sm"
               variant="primary"
               className="bg-green-600 hover:bg-green-700"
-              onClick={handleConfirmApprove}
+              onClick={handleOpenMedRepForApprove}
               disabled={approvingId !== null || !selectedItem}
             >
               Approve
