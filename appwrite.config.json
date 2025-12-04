@@ -47,6 +47,27 @@
             "entrypoint": "src/main.js",
             "commands": "npm install",
             "path": "functions/appwrite-function-team-membership"
+        },
+        {
+            "$id": "69312a380014e4ec8a2a",
+            "name": "appwrite-function-inventory-list",
+            "runtime": "node-20.0",
+            "specification": "s-8vcpu-8gb",
+            "execute": [
+                "any"
+            ],
+            "events": [],
+            "scopes": [
+                "users.read",
+                "database.read"
+            ],
+            "schedule": "",
+            "timeout": 15,
+            "enabled": true,
+            "logging": true,
+            "entrypoint": "src/main.js",
+            "commands": "npm install",
+            "path": "functions/appwrite-function-inventory-list"
         }
     ]
 }
