@@ -1702,7 +1702,7 @@ export default function InventoriesPage() {
                 ]}
               />
               <Form onSubmit={handleSaveBarcode} className="space-y-4">
-                here
+
                 <div className="space-y-2">
                   <Label htmlFor="barcode-value">Barcode</Label>
                   <InputField
