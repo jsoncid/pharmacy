@@ -13,6 +13,7 @@ import {
 import { formatPeso } from "../../components/DescriptionHooks/currencyFormatter";
 
 import ProductDescriptionDetails from "../../components/DescriptionHooks/ProductDescriptionDetails";
+import LocationDescriptionDetails from "../../components/DescriptionHooks/LocationDescriptionDetails";
 import InputField from "../../components/form/input/InputField";
 import Button from "../../components/ui/button/Button";
 import { Modal } from "../../components/ui/modal";
@@ -720,7 +721,10 @@ export default function InventoriesPage() {
             {formatPeso(priceValue)}
           </TableCell>
           <TableCell className="px-5 py-4 text-start text-gray-600 text-theme-sm dark:text-gray-300">
-            {detail.locationBins ?? "-"}
+            <LocationDescriptionDetails
+              binId={detail.locationBins}
+              className="text-xs text-gray-700 dark:text-gray-200"
+            />
           </TableCell>
           <TableCell className="px-5 py-4 text-start">
             <Button
