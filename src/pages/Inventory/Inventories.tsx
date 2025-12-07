@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Databases, Query } from "appwrite";
+import { Databases, ID, Query } from "appwrite";
 import client from "../../lib/appwrite";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -19,6 +19,10 @@ import Button from "../../components/ui/button/Button";
 import { Modal } from "../../components/ui/modal";
 import { useModal } from "../../hooks/useModal";
 import Alert from "../../components/ui/alert/Alert";
+import UnorderedList from "../../components/ui/list/UnorderedList";
+import SearchableSelectWithAdd from "../../components/form/SearchableSelectWithAdd";
+import Form from "../../components/form/Form";
+import Label from "../../components/form/Label";
 
 const databases = new Databases(client);
 const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
@@ -65,6 +69,10 @@ interface InventoryDetail {
   running_balance?: number;
   conversion_level?: number;
   locationBins?: string;
+  med_rep?: string;
+  med_rep_incentive?: string;
+  med_rep_incentive_value?: number;
+  is_converted?: boolean;
 }
 
 interface InventoryRecord {
@@ -167,6 +175,283 @@ export default function InventoriesPage() {
   const [locationSuccessMessage, setLocationSuccessMessage] =
     useState<string | null>(null);
   const locationModal = useModal(false);
+  const [selectedDetailForDownsize, setSelectedDetailForDownsize] =
+    useState<InventoryDetail | null>(null);
+  const downsizeModal = useModal(false);
+  const [newDetailUnitId, setNewDetailUnitId] = useState("");
+  const [newDetailRunningBalance, setNewDetailRunningBalance] = useState("");
+  const [downsizedValue, setDownsizedValue] = useState("");
+  const [newMedRepIncentiveValue, setNewMedRepIncentiveValue] = useState("");
+  const [newSellingPrice, setNewSellingPrice] = useState("");
+  const [createDetailError, setCreateDetailError] = useState<string | null>(null);
+  const [downsizeSuccessMessage, setDownsizeSuccessMessage] =
+    useState<string | null>(null);
+  const [creatingDetail, setCreatingDetail] = useState(false);
+  const createUnitModal = useModal(false);
+  const [newUnitDescription, setNewUnitDescription] = useState("");
+  const [unitModalError, setUnitModalError] = useState<string | null>(null);
+  const [unitModalSubmitting, setUnitModalSubmitting] = useState(false);
+  const hasMedRepForDownsize = Boolean(
+    selectedDetailForDownsize?.med_rep?.trim(),
+  );
+
+  const handleUnitSearch = async (term: string) => {
+    const search = term.trim();
+    try {
+      const queries = [
+        Query.orderDesc("$createdAt"),
+        Query.equal("status", true),
+        Query.limit(20),
+      ];
+
+      if (search) {
+        queries.splice(2, 0, Query.contains("description", [search]));
+      }
+
+      const response = await databases.listDocuments(
+        DATABASE_ID,
+        UNITS_COLLECTION_ID,
+        queries,
+      );
+      setUnits(response.documents as unknown as UnitOption[]);
+    } catch {
+      // ignore lookup errors
+    }
+  };
+
+  const handleOpenCreateUnitModal = () => {
+    setNewUnitDescription("");
+    setUnitModalError(null);
+    createUnitModal.openModal();
+  };
+
+  const handleCreateUnit = async () => {
+    if (!newUnitDescription.trim()) {
+      setUnitModalError("Description is required.");
+      return;
+    }
+
+    try {
+      setUnitModalSubmitting(true);
+      setUnitModalError(null);
+      const newUnit = await databases.createDocument(
+        DATABASE_ID,
+        UNITS_COLLECTION_ID,
+        ID.unique(),
+        {
+          description: newUnitDescription.trim(),
+          status: true,
+        },
+      );
+
+      const typedUnit = newUnit as unknown as UnitOption;
+      setUnits((prev) => [typedUnit, ...prev]);
+      setNewDetailUnitId(typedUnit.$id);
+      createUnitModal.closeModal();
+    } catch (err) {
+      setUnitModalError(
+        err instanceof Error ? err.message : "Failed to create unit.",
+      );
+    } finally {
+      setUnitModalSubmitting(false);
+    }
+  };
+
+  const handleCreateInventoryDetail = async () => {
+    if (!selectedDetailForDownsize) {
+      setCreateDetailError("No inventory detail selected.");
+      return;
+    }
+
+    if (!newDetailUnitId) {
+      setCreateDetailError("Please select a unit.");
+      return;
+    }
+
+    if (hasMedRepForDownsize) {
+      const parsedNewIncentive = Number(newMedRepIncentiveValue);
+      if (!Number.isFinite(parsedNewIncentive) || parsedNewIncentive <= 0) {
+        setCreateDetailError(
+          "Med Rep incentive value must be a positive number.",
+        );
+        return;
+      }
+    }
+
+    const parsedSellingPrice = Number(newSellingPrice);
+    if (!Number.isFinite(parsedSellingPrice) || parsedSellingPrice <= 0) {
+      setCreateDetailError("New selling price must be a positive number.");
+      return;
+    }
+
+    const parsedDownsizeValue = Number(downsizedValue);
+    const shouldSubtractOne =
+      Number.isFinite(parsedDownsizeValue) && parsedDownsizeValue >= 1;
+    const rawOriginalBalance =
+      typeof selectedDetailForDownsize.running_balance === "number"
+        ? selectedDetailForDownsize.running_balance
+        : Number(selectedDetailForDownsize.running_balance);
+    const updatedRunningBalance =
+      Number.isFinite(rawOriginalBalance)
+        ? rawOriginalBalance - (shouldSubtractOne ? 1 : 0)
+        : null;
+
+    try {
+      setCreatingDetail(true);
+      setCreateDetailError(null);
+
+      let transactionId: string | null = null;
+      let typedDetail: InventoryDetail | null = null;
+
+      try {
+        const tx = await databases.createTransaction({ ttl: 60 });
+        transactionId = (tx as any).$id as string;
+
+        await databases.updateDocument({
+          databaseId: DATABASE_ID,
+          collectionId: INVENTORY_DETAILS_COLLECTION_ID,
+          documentId: selectedDetailForDownsize.$id,
+          data: {
+            is_converted: true,
+            ...(updatedRunningBalance !== null
+              ? { running_balance: updatedRunningBalance }
+              : {}),
+          },
+          transactionId,
+        });
+
+        const payload = {
+          inventories: selectedDetailForDownsize.inventories ?? null,
+          units: newDetailUnitId,
+          running_balance: Number(downsizedValue),
+          conversion_level: (selectedDetailForDownsize.conversion_level ?? 0) + 1,
+          med_rep: selectedDetailForDownsize.med_rep ?? null,
+          med_rep_incentive: selectedDetailForDownsize.med_rep_incentive ?? null,
+          med_rep_incentive_value: hasMedRepForDownsize
+            ? Number(newMedRepIncentiveValue)
+            : selectedDetailForDownsize.med_rep_incentive_value ?? null,
+        };
+
+        const newDetail = await databases.createDocument({
+          databaseId: DATABASE_ID,
+          collectionId: INVENTORY_DETAILS_COLLECTION_ID,
+          documentId: ID.unique(),
+          data: payload,
+          transactionId,
+        });
+
+        typedDetail = newDetail as unknown as InventoryDetail;
+
+        await databases.createDocument({
+          databaseId: DATABASE_ID,
+          collectionId: SELLING_PRICES_COLLECTION_ID,
+          documentId: ID.unique(),
+          data: {
+            inventoryDetails: typedDetail.$id,
+            price: parsedSellingPrice,
+            status: true,
+          },
+          transactionId,
+        });
+
+        await databases.updateTransaction({
+          transactionId,
+          commit: true,
+          rollback: false,
+        });
+        transactionId = null;
+      } catch (innerErr) {
+        if (transactionId) {
+          try {
+            await databases.updateTransaction({
+              transactionId,
+              commit: false,
+              rollback: true,
+            });
+          } catch {
+            // ignore rollback failures
+          }
+        }
+        throw innerErr;
+      }
+
+      if (!typedDetail) {
+        throw new Error("Failed to create downsized inventory detail.");
+      }
+
+      const originalDetail = selectedDetailForDownsize as InventoryDetail;
+
+      const updatedOriginal: InventoryDetail = {
+        ...originalDetail,
+        is_converted: true,
+        ...(updatedRunningBalance !== null
+          ? { running_balance: updatedRunningBalance }
+          : {}),
+      };
+
+      setDetails((prev) => [
+        typedDetail,
+        ...prev.map((detail) =>
+          detail.$id === updatedOriginal.$id ? updatedOriginal : detail,
+        ),
+      ]);
+      setSelectedDetailForDownsize(typedDetail);
+      setNewDetailRunningBalance("");
+      downsizeModal.closeModal();
+      setDownsizeSuccessMessage("Downsizing completed successfully.");
+    } catch (err) {
+      setCreateDetailError(
+        err instanceof Error
+          ? err.message
+          : "Failed to create inventory detail.",
+      );
+    } finally {
+      setCreatingDetail(false);
+    }
+  };
+
+  const handleDownsizedValueChange = (value: string) => {
+    setDownsizedValue(value);
+
+    const parsedDownsize = Number(value);
+    const baseIncentive = getMedRepIncentiveValueNumber(
+      selectedDetailForDownsize,
+    );
+    const originalPrice =
+      selectedDetailForDownsize && prices[selectedDetailForDownsize.$id];
+
+    if (
+      baseIncentive !== null &&
+      Number.isFinite(parsedDownsize) &&
+      parsedDownsize > 0
+    ) {
+      if (getMedRepIncentiveLabel(selectedDetailForDownsize) === "Amount") {
+        setNewMedRepIncentiveValue(
+          Number(baseIncentive / parsedDownsize).toFixed(2),
+        );
+      } else if (
+        getMedRepIncentiveLabel(selectedDetailForDownsize) === "Percent"
+      ) {
+        setNewMedRepIncentiveValue(
+          Number(baseIncentive).toFixed(0),
+        );
+      } else {
+        setNewMedRepIncentiveValue(value);
+      }
+    } else {
+      setNewMedRepIncentiveValue("");
+    }
+
+    if (
+      typeof originalPrice === "number" &&
+      Number.isFinite(parsedDownsize) &&
+      parsedDownsize > 0
+    ) {
+      setNewSellingPrice((originalPrice / parsedDownsize).toFixed(2));
+    } else {
+      setNewSellingPrice("");
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -513,6 +798,102 @@ export default function InventoriesPage() {
     setTaggingLocationId(null);
   };
 
+  const openDownsizeModal = (detail: InventoryDetail) => {
+    setSelectedDetailForDownsize(detail);
+    setNewDetailUnitId("");
+    setNewDetailRunningBalance("");
+    setDownsizedValue("");
+    setNewMedRepIncentiveValue("");
+    setNewSellingPrice("");
+    setCreateDetailError(null);
+    downsizeModal.openModal();
+  };
+
+  const closeDownsizeModal = () => {
+    downsizeModal.closeModal();
+    setSelectedDetailForDownsize(null);
+    setNewDetailUnitId("");
+    setNewDetailRunningBalance("");
+    setDownsizedValue("");
+    setNewMedRepIncentiveValue("");
+    setNewSellingPrice("");
+    setCreateDetailError(null);
+  };
+
+  const getProductDescriptionDetails = (
+    detail: InventoryDetail | null,
+  ): ProductDescription | null => {
+    if (!detail?.inventories) return null;
+    const inventoryRecord = inventories.find(
+      (inventory) => inventory.$id === detail.inventories,
+    );
+    if (!inventoryRecord?.productDescriptions) return null;
+    return (
+      products.find(
+        (item) => item.$id === inventoryRecord.productDescriptions,
+      ) ?? null
+    );
+  };
+
+  const getUnitDescription = (detail: InventoryDetail | null) => {
+    if (!detail?.units) return "-";
+    const unit = units.find((item) => item.$id === detail.units);
+    return unit?.description ?? "-";
+  };
+
+  const getMedRepLabel = (detail: InventoryDetail | null) => {
+    const medRep = detail?.med_rep;
+    return medRep && medRep.trim() !== "" ? medRep : "-";
+  };
+
+  const getMedRepIncentiveLabel = (detail: InventoryDetail | null) => {
+    const incentive = detail?.med_rep_incentive;
+    if (!incentive) return "-";
+    if (incentive === "percent") return "Percent";
+    if (incentive === "amount") return "Amount";
+    return incentive;
+  };
+
+  const getMedRepIncentiveValue = (detail: InventoryDetail | null) => {
+    if (!detail) return "-";
+    const rawValue =
+      typeof detail.med_rep_incentive_value === "number"
+        ? detail.med_rep_incentive_value
+        : Number(detail.med_rep_incentive_value);
+    if (!Number.isFinite(rawValue)) return "-";
+    return detail.med_rep_incentive === "percent"
+      ? `${rawValue}%`
+      : formatPeso(rawValue);
+  };
+
+  const getMedRepIncentiveValueNumber = (detail: InventoryDetail | null) => {
+    if (!detail) return null;
+    const rawValue =
+      typeof detail.med_rep_incentive_value === "number"
+        ? detail.med_rep_incentive_value
+        : Number(detail.med_rep_incentive_value);
+    if (!Number.isFinite(rawValue)) return null;
+    return Number(Number(rawValue).toFixed(2));
+  };
+
+  const getRunningBalance = (detail: InventoryDetail | null) => {
+    if (!detail) return "-";
+    const rawBalance =
+      typeof detail.running_balance === "number"
+        ? detail.running_balance
+        : Number(detail.running_balance);
+    return Number.isFinite(rawBalance) ? rawBalance : "-";
+  };
+
+  const getConversionLevel = (detail: InventoryDetail | null) => {
+    if (!detail) return "-";
+    const rawLevel =
+      typeof detail.conversion_level === "number"
+        ? detail.conversion_level
+        : Number(detail.conversion_level);
+    return Number.isFinite(rawLevel) ? rawLevel : "-";
+  };
+
   const handleTagLocation = async (binId: string) => {
     if (!selectedDetailForLocation) return;
 
@@ -727,18 +1108,30 @@ export default function InventoriesPage() {
             />
           </TableCell>
           <TableCell className="px-5 py-4 text-start">
-            <Button
-              size="sm"
-              variant="primary"
-              className={
-                detail.locationBins
-                  ? "bg-blue-600 hover:bg-blue-700"
-                  : "bg-green-600 hover:bg-green-700"
-              }
-              onClick={() => openLocationModal(detail)}
-            >
-              {detail.locationBins ? "Update Location" : "Add Location"}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="primary"
+                className={
+                  detail.locationBins
+                    ? "bg-blue-600 hover:bg-blue-700"
+                    : "bg-green-600 hover:bg-green-700"
+                }
+                onClick={() => openLocationModal(detail)}
+              >
+                {detail.locationBins ? "Update Location" : "Add Location"}
+              </Button>
+              {!detail.is_converted && (
+                <Button
+                  size="sm"
+                  variant="primary"
+                  className="bg-orange-500 hover:bg-orange-600"
+                  onClick={() => openDownsizeModal(detail)}
+                >
+                  Down Sizing
+                </Button>
+              )}
+            </div>
           </TableCell>
 
         </TableRow>
@@ -773,6 +1166,16 @@ export default function InventoriesPage() {
             message={locationSuccessMessage}
             closable
             onClose={() => setLocationSuccessMessage(null)}
+          />
+        )}
+
+        {downsizeSuccessMessage && (
+          <Alert
+            variant="success"
+            title="Downsizing completed"
+            message={downsizeSuccessMessage}
+            closable
+            onClose={() => setDownsizeSuccessMessage(null)}
           />
         )}
 
@@ -831,7 +1234,7 @@ export default function InventoriesPage() {
                       isHeader
                       className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
                     >
-                      Current Selling Price
+                      Selling Price
                     </TableCell>
                     <TableCell
                       isHeader
@@ -962,6 +1365,253 @@ export default function InventoriesPage() {
               Close
             </Button>
           </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={downsizeModal.isOpen}
+        onClose={closeDownsizeModal}
+        className="max-w-md w-full p-6"
+      >
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            Down Sizing
+          </h2>
+          {selectedDetailForDownsize ? (
+            <>
+              <UnorderedList
+                items={[
+                  {
+                    label: "Product Description",
+                    value: (() => {
+                      const record = getProductDescriptionDetails(
+                        selectedDetailForDownsize,
+                      );
+                      if (!record) return "-";
+                      return (
+                        <ProductDescriptionDetails
+                          record={record}
+                          categories={categories}
+                          materials={materialsData}
+                          sizes={sizesData}
+                          capacityVolumes={capacityVolumesData}
+                          sterilities={sterilitiesData}
+                          usabilities={usabilitiesData}
+                          straps={strapsData}
+                          contents={contentsData}
+                          dosageForms={dosageForms}
+                          containers={containers}
+                          className="gap-0 text-sm"
+                        />
+                      );
+                    })(),
+                  },
+                  {
+                    label: "Selling Price",
+                    value: (() => {
+                      const price = selectedDetailForDownsize
+                        ? prices[selectedDetailForDownsize.$id]
+                        : null;
+                      return typeof price === "number"
+                        ? formatPeso(price)
+                        : "-";
+                    })(),
+                  },
+                  {
+                    label: "Running Balance",
+                    value: (() => {
+                      const balance = getRunningBalance(selectedDetailForDownsize);
+                      if (
+                        typeof balance === "number" &&
+                        downsizedValue &&
+                        Number(downsizedValue) >= 1
+                      ) {
+                        return balance - 1;
+                      }
+                      return balance;
+                    })(),
+                  },
+                  {
+                    label: "Unit",
+                    value: getUnitDescription(selectedDetailForDownsize),
+                  },
+                  {
+                    label: "Med Rep",
+                    value: getMedRepLabel(selectedDetailForDownsize),
+                  },
+                  {
+                    label: "Med Rep Incentive",
+                    value: getMedRepIncentiveLabel(selectedDetailForDownsize),
+                  },
+                  {
+                    label: "Med Rep Incentive Value",
+                    value: `${getMedRepIncentiveValue(
+                      selectedDetailForDownsize,
+                    )} / ${getUnitDescription(selectedDetailForDownsize)}`,
+                  },
+                  {
+                    label: "Conversion Level",
+                    value: getConversionLevel(selectedDetailForDownsize),
+                  },
+                ]}
+              />
+
+              <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/80 p-4 dark:border-white/10 dark:bg-white/[0.02]">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                  Create a downsizing 
+                </h3>
+                {/* <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Duplicate this inventory into a different unit and running balance.
+                </p> */}
+                <Form
+                  onSubmit={handleCreateInventoryDetail}
+                  className="mt-4 space-y-4"
+                >
+                  <div className="space-y-2">
+                    <Label htmlFor="downsized-value">
+                      Downsized Value / {getUnitDescription(selectedDetailForDownsize)}
+                    </Label>
+                    <InputField
+                      id="downsized-value"
+                      type="number"
+                      min="1"
+                      step={1}
+                      placeholder="Enter downsized value"
+                      value={downsizedValue}
+                      onChange={(event) => handleDownsizedValueChange(event.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="new-detail-unit">Unit</Label>
+                    <SearchableSelectWithAdd
+                      options={units
+                        .filter((unit) => unit.$id !== selectedDetailForDownsize?.units)
+                        .map((unit) => ({
+                          value: unit.$id,
+                          label: unit.description,
+                        }))}
+                      placeholder="Select unit"
+                      value={newDetailUnitId}
+                      onChange={(value) => setNewDetailUnitId(value)}
+                      onSearchChange={handleUnitSearch}
+                      onAdd={handleOpenCreateUnitModal}
+                      noOptionsText="No units found"
+                    />
+                  </div>
+
+                  {hasMedRepForDownsize && (
+                    <div className="space-y-2">
+                      <Label htmlFor="new-med-rep-incentive-value">
+                        New Incentive Value (
+                        {getMedRepIncentiveLabel(selectedDetailForDownsize)}
+                        {(() => {
+                          if (!newDetailUnitId) return "";
+                          const selectedUnit = units.find(
+                            (unit) => unit.$id === newDetailUnitId,
+                          );
+                          return selectedUnit ? ` per ${selectedUnit.description}` : "";
+                        })()}
+                        )
+                      </Label>
+                      <InputField
+                        id="new-med-rep-incentive-value"
+                        type="number"
+                        min="0"
+                        step={.01}
+                        placeholder="Enter incentive value"
+                        value={newMedRepIncentiveValue}
+                        onChange={(event) =>
+                          setNewMedRepIncentiveValue(event.target.value)
+                        }
+                      />
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <Label htmlFor="new-selling-price">New Selling Price</Label>
+                    <InputField
+                      id="new-selling-price"
+                      type="number"
+                      min="0"
+                      step={0.01}
+                      placeholder="Enter new selling price"
+                      value={newSellingPrice}
+                      onChange={(event) => setNewSellingPrice(event.target.value)}
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      className="bg-green-600 hover:bg-green-700"
+                      type="submit"
+                      disabled={creatingDetail}
+                    >
+                      {creatingDetail ? "Creating..." : "Create New Downsize"}
+                    </Button>
+                  </div>
+                </Form>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              No inventory detail selected.
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button size="sm" variant="outline" onClick={closeDownsizeModal}>
+              Close
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={createUnitModal.isOpen}
+        onClose={createUnitModal.closeModal}
+        className="max-w-md w-full p-6"
+      >
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            Create Unit
+          </h2>
+          <Form
+            onSubmit={handleCreateUnit}
+            className="space-y-4"
+          >
+            <div className="space-y-2">
+              <Label htmlFor="create-unit-description">Description</Label>
+              <InputField
+                id="create-unit-description"
+                type="text"
+                placeholder="Enter unit name"
+                value={newUnitDescription}
+                onChange={(event) => setNewUnitDescription(event.target.value)}
+              />
+            </div>
+            {unitModalError && (
+              <p className="text-sm text-error-500">{unitModalError}</p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={createUnitModal.closeModal}
+                disabled={unitModalSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                variant="primary"
+                className="bg-green-600 hover:bg-green-700"
+                type="submit"
+                disabled={unitModalSubmitting}
+              >
+                {unitModalSubmitting ? "Saving..." : "Save"}
+              </Button>
+            </div>
+          </Form>
         </div>
       </Modal>
     </>
