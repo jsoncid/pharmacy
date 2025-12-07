@@ -73,6 +73,7 @@ interface InventoryDetail {
   med_rep_incentive?: string;
   med_rep_incentive_value?: number;
   is_converted?: boolean;
+  barcode?: string;
 }
 
 interface InventoryRecord {
@@ -175,6 +176,14 @@ export default function InventoriesPage() {
   const [locationSuccessMessage, setLocationSuccessMessage] =
     useState<string | null>(null);
   const locationModal = useModal(false);
+  const [selectedDetailForBarcode, setSelectedDetailForBarcode] =
+    useState<InventoryDetail | null>(null);
+  const [barcodeValue, setBarcodeValue] = useState("");
+  const [barcodeError, setBarcodeError] = useState<string | null>(null);
+  const [barcodeSuccessMessage, setBarcodeSuccessMessage] =
+    useState<string | null>(null);
+  const [savingBarcode, setSavingBarcode] = useState(false);
+  const barcodeModal = useModal(false);
   const [selectedDetailForDownsize, setSelectedDetailForDownsize] =
     useState<InventoryDetail | null>(null);
   const downsizeModal = useModal(false);
@@ -820,6 +829,64 @@ export default function InventoriesPage() {
     setCreateDetailError(null);
   };
 
+  const openBarcodeModal = (detail: InventoryDetail) => {
+    setSelectedDetailForBarcode(detail);
+    setBarcodeValue(detail.barcode ?? "");
+    setBarcodeError(null);
+    barcodeModal.openModal();
+  };
+
+  const closeBarcodeModal = () => {
+    barcodeModal.closeModal();
+    setSelectedDetailForBarcode(null);
+    setBarcodeValue("");
+    setBarcodeError(null);
+  };
+
+  const handleSaveBarcode = async () => {
+    if (!selectedDetailForBarcode) {
+      setBarcodeError("No inventory detail selected.");
+      return;
+    }
+
+    const trimmed = barcodeValue.trim();
+    if (!trimmed) {
+      setBarcodeError("Barcode is required.");
+      return;
+    }
+
+    try {
+      setSavingBarcode(true);
+      setBarcodeError(null);
+
+      await databases.updateDocument(
+        DATABASE_ID,
+        INVENTORY_DETAILS_COLLECTION_ID,
+        selectedDetailForBarcode.$id,
+        {
+          barcode: trimmed,
+        },
+      );
+
+      setDetails((prev) =>
+        prev.map((detail) =>
+          detail.$id === selectedDetailForBarcode.$id
+            ? { ...detail, barcode: trimmed }
+            : detail,
+        ),
+      );
+
+      setBarcodeSuccessMessage("Barcode assigned successfully.");
+      closeBarcodeModal();
+    } catch (err) {
+      setBarcodeError(
+        err instanceof Error ? err.message : "Failed to assign barcode.",
+      );
+    } finally {
+      setSavingBarcode(false);
+    }
+  };
+
   const getProductDescriptionDetails = (
     detail: InventoryDetail | null,
   ): ProductDescription | null => {
@@ -1121,6 +1188,16 @@ export default function InventoriesPage() {
               >
                 {detail.locationBins ? "Update Location" : "Add Location"}
               </Button>
+              {!detail.barcode && (
+                <Button
+                  size="sm"
+                  variant="primary"
+                  className="bg-indigo-600 hover:bg-indigo-700"
+                  onClick={() => openBarcodeModal(detail)}
+                >
+                  Assign Barcode
+                </Button>
+              )}
               {!detail.is_converted && (
                 <Button
                   size="sm"
@@ -1176,6 +1253,16 @@ export default function InventoriesPage() {
             message={downsizeSuccessMessage}
             closable
             onClose={() => setDownsizeSuccessMessage(null)}
+          />
+        )}
+
+        {barcodeSuccessMessage && (
+          <Alert
+            variant="success"
+            title="Barcode assigned"
+            message={barcodeSuccessMessage}
+            closable
+            onClose={() => setBarcodeSuccessMessage(null)}
           />
         )}
 
@@ -1563,6 +1650,98 @@ export default function InventoriesPage() {
               Close
             </Button>
           </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={barcodeModal.isOpen}
+        onClose={closeBarcodeModal}
+        className="max-w-md w-full p-6"
+      >
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            Assign Barcode
+          </h2>
+          {selectedDetailForBarcode ? (
+            <>
+              <UnorderedList
+                items={[
+                  {
+                    label: "Product Description",
+                    value: (() => {
+                      const record = getProductDescriptionDetails(
+                        selectedDetailForBarcode,
+                      );
+                      if (!record) return "-";
+                      return (
+                        <ProductDescriptionDetails
+                          record={record}
+                          categories={categories}
+                          materials={materialsData}
+                          sizes={sizesData}
+                          capacityVolumes={capacityVolumesData}
+                          sterilities={sterilitiesData}
+                          usabilities={usabilitiesData}
+                          straps={strapsData}
+                          contents={contentsData}
+                          dosageForms={dosageForms}
+                          containers={containers}
+                          className="gap-0 text-sm"
+                        />
+                      );
+                    })(),
+                  },
+                  {
+                    label: "Unit",
+                    value: getUnitDescription(selectedDetailForBarcode),
+                  },
+                  {
+                    label: "Current Barcode",
+                    value: selectedDetailForBarcode.barcode || "-",
+                  },
+                ]}
+              />
+              <Form onSubmit={handleSaveBarcode} className="space-y-4">
+                here
+                <div className="space-y-2">
+                  <Label htmlFor="barcode-value">Barcode</Label>
+                  <InputField
+                    id="barcode-value"
+                    type="text"
+                    placeholder="Enter barcode"
+                    value={barcodeValue}
+                    onChange={(event) => setBarcodeValue(event.target.value)}
+                  />
+                </div>
+                {barcodeError && (
+                  <p className="text-sm text-error-500">{barcodeError}</p>
+                )}
+                <div className="flex justify-end gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    type="button"
+                    onClick={closeBarcodeModal}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    className="bg-indigo-600 hover:bg-indigo-700"
+                    type="submit"
+                    disabled={savingBarcode}
+                  >
+                    {savingBarcode ? "Saving..." : "Save"}
+                  </Button>
+                </div>
+              </Form>
+            </>
+          ) : (
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              No inventory detail selected.
+            </p>
+          )}
         </div>
       </Modal>
 
