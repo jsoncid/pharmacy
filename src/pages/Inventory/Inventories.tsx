@@ -730,10 +730,14 @@ export default function InventoriesPage() {
             <Button
               size="sm"
               variant="primary"
-              className="bg-green-600 hover:bg-green-700"
+              className={
+                detail.locationBins
+                  ? "bg-blue-600 hover:bg-blue-700"
+                  : "bg-green-600 hover:bg-green-700"
+              }
               onClick={() => openLocationModal(detail)}
             >
-              Add Location
+              {detail.locationBins ? "Update Location" : "Add Location"}
             </Button>
           </TableCell>
 
