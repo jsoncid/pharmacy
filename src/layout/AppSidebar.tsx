@@ -52,6 +52,7 @@ const AppSidebar: React.FC = () => {
       name: "Inventories",
       subItems: [
         { name: "Inbound Stocks", path: "/inventories/inbound-stocks" },
+        { name: "Location Management", path: "/inventories/location-aisles" },
       ],
     },
 

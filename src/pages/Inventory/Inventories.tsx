@@ -10,13 +10,26 @@ import {
   TableRow,
   TableCell,
 } from "../../components/ui/table";
-import ProductDescriptionDetails from "../../components/DescriptionHooks/ProductDescriptionDetails";
 import { formatPeso } from "../../components/DescriptionHooks/currencyFormatter";
+
+import ProductDescriptionDetails from "../../components/DescriptionHooks/ProductDescriptionDetails";
+import InputField from "../../components/form/input/InputField";
+import Button from "../../components/ui/button/Button";
+import { Modal } from "../../components/ui/modal";
+import { useModal } from "../../hooks/useModal";
+import Alert from "../../components/ui/alert/Alert";
 
 const databases = new Databases(client);
 const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
+const INVENTORIES_COLLECTION_ID =
+  import.meta.env.VITE_APPWRITE_COLLECTION_INVENTORIES;
+const INVENTORY_DETAILS_COLLECTION_ID =
+  import.meta.env.VITE_APPWRITE_COLLECTION_INVENTORY_DETAILS;
+const SELLING_PRICES_COLLECTION_ID =
+  import.meta.env.VITE_APPWRITE_COLLECTION_SELLING_PRICES;
 const PRODUCT_DESCRIPTIONS_COLLECTION_ID =
   import.meta.env.VITE_APPWRITE_COLLECTION_PRODUCT_DESCRIPTIONS;
+const UNITS_COLLECTION_ID = import.meta.env.VITE_APPWRITE_COLLECTION_UNITS;
 const CATEGORY_COLLECTION_ID =
   import.meta.env.VITE_APPWRITE_COLLECTION_CATEGORIES;
 const MATERIAL_COLLECTION_ID =
@@ -28,50 +41,50 @@ const STERILITY_COLLECTION_ID =
   import.meta.env.VITE_APPWRITE_COLLECTION_STERILITIES;
 const USABILITY_COLLECTION_ID =
   import.meta.env.VITE_APPWRITE_COLLECTION_USABILITIES;
-const STRAP_COLLECTION_ID =
-  import.meta.env.VITE_APPWRITE_COLLECTION_STRAPS;
 const CONTENT_COLLECTION_ID =
   import.meta.env.VITE_APPWRITE_COLLECTION_CONTENTS;
+const STRAP_COLLECTION_ID = import.meta.env.VITE_APPWRITE_COLLECTION_STRAPS;
 const DOSAGE_FORM_COLLECTION_ID =
   import.meta.env.VITE_APPWRITE_COLLECTION_DOSAGE_FORMS;
 const CONTAINER_COLLECTION_ID =
   import.meta.env.VITE_APPWRITE_COLLECTION_CONTAINERS;
-const INVENTORIES_COLLECTION_ID =
-  import.meta.env.VITE_APPWRITE_COLLECTION_INVENTORIES;
-const INVENTORY_DETAILS_COLLECTION_ID =
-  import.meta.env.VITE_APPWRITE_COLLECTION_INVENTORY_DETAILS;
-const SELLING_PRICES_COLLECTION_ID =
-  import.meta.env.VITE_APPWRITE_COLLECTION_SELLING_PRICES;
-const UNITS_COLLECTION_ID = import.meta.env.VITE_APPWRITE_COLLECTION_UNITS;
+const LOCATION_BINS_COLLECTION_ID =
+  import.meta.env.VITE_APPWRITE_COLLECTION_location_bins;
+const LOCATION_SHELVES_COLLECTION_ID =
+  import.meta.env.VITE_APPWRITE_COLLECTION_location_shelves;
+const LOCATION_RACKS_COLLECTION_ID =
+  import.meta.env.VITE_APPWRITE_COLLECTION_location_racks;
+const LOCATION_AISLES_COLLECTION_ID =
+  import.meta.env.VITE_APPWRITE_COLLECTION_location_aisles;
 
-interface Inventory {
+interface InventoryDetail {
+  $id: string;
+  inventories?: string;
+  units?: string;
+  running_balance?: number;
+  conversion_level?: number;
+  locationBins?: string;
+}
+
+interface InventoryRecord {
   $id: string;
   productDescriptions?: string;
   date_expiry?: string;
   lot_no?: string;
   batch_no?: string;
+  status?: boolean;
 }
 
-interface InventoryDetail {
-  $id: string;
-  inventories: string;
-  units?: string;
-  running_balance?: number;
-  conversion_level?: number;
-}
-
-interface SellingPriceMap {
-  [detailId: string]: number | null;
-}
-
-interface UnitOption {
+interface Category {
   $id: string;
   description: string;
+  status?: boolean;
 }
 
 interface ProductDescription {
   $id: string;
   name: string;
+  status?: boolean;
   categories?: string;
   materials?: string;
   sizes?: string;
@@ -86,33 +99,73 @@ interface ProductDescription {
   dosage_strenght?: number;
 }
 
-interface Category {
+interface UnitOption {
   $id: string;
   description: string;
+  status?: boolean;
 }
 
-export default function Inventories() {
-  const [inventories, setInventories] = useState<Inventory[]>([]);
-  const [detailsByInventory, setDetailsByInventory] = useState<
-    Record<string, InventoryDetail[]>
-  >({});
-  const [pricesByDetail, setPricesByDetail] = useState<SellingPriceMap>({});
-  const [units, setUnits] = useState<UnitOption[]>([]);
+interface LocationBin {
+  $id: string;
+  description: string;
+  status?: boolean;
+  locationShelves?: string;
+  shelfDescription?: string;
+  rackDescription?: string;
+  aisleDescription?: string;
+}
+
+interface LocationShelfLink {
+  $id: string;
+  description: string;
+  status?: boolean;
+  locationRacks?: string;
+}
+
+interface LocationRackLink {
+  $id: string;
+  description: string;
+  status?: boolean;
+  locationAisles?: string;
+}
+
+interface LocationAisleLink {
+  $id: string;
+  description: string;
+  status?: boolean;
+}
+
+export default function InventoriesPage() {
+  const [details, setDetails] = useState<InventoryDetail[]>([]);
+  const [inventories, setInventories] = useState<InventoryRecord[]>([]);
   const [products, setProducts] = useState<ProductDescription[]>([]);
+  const [units, setUnits] = useState<UnitOption[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [materialsData, setMaterialsData] = useState<UnitOption[]>([]);
   const [sizesData, setSizesData] = useState<UnitOption[]>([]);
-  const [capacityVolumesData, setCapacityVolumesData] = useState<UnitOption[]>(
-    [],
-  );
+  const [capacityVolumesData, setCapacityVolumesData] =
+    useState<UnitOption[]>([]);
   const [sterilitiesData, setSterilitiesData] = useState<UnitOption[]>([]);
   const [usabilitiesData, setUsabilitiesData] = useState<UnitOption[]>([]);
   const [strapsData, setStrapsData] = useState<UnitOption[]>([]);
   const [contentsData, setContentsData] = useState<UnitOption[]>([]);
   const [dosageForms, setDosageForms] = useState<UnitOption[]>([]);
   const [containers, setContainers] = useState<UnitOption[]>([]);
+  const [prices, setPrices] = useState<Record<string, number | null>>({});
+  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [locationBins, setLocationBins] = useState<LocationBin[]>([]);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [taggingLocationId, setTaggingLocationId] = useState<string | null>(
+    null,
+  );
+  const [selectedDetailForLocation, setSelectedDetailForLocation] =
+    useState<InventoryDetail | null>(null);
+  const [locationSuccessMessage, setLocationSuccessMessage] =
+    useState<string | null>(null);
+  const locationModal = useModal(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -120,15 +173,42 @@ export default function Inventories() {
         setLoading(true);
         setError(null);
 
-        const lookupQueries = [
+        const pageLimit = 100;
+        let allDetails: InventoryDetail[] = [];
+        let offset = 0;
+
+        for (;;) {
+          const res = await databases.listDocuments(
+            DATABASE_ID,
+            INVENTORY_DETAILS_COLLECTION_ID,
+            [
+              Query.orderDesc("$createdAt"),
+              Query.limit(pageLimit),
+              Query.offset(offset),
+            ],
+          );
+
+          const docs = res.documents as unknown as InventoryDetail[];
+          allDetails = allDetails.concat(docs);
+
+          if (docs.length < pageLimit) {
+            break;
+          }
+
+          offset += pageLimit;
+        }
+
+        setDetails(allDetails);
+
+        const commonQueries = [
           Query.orderDesc("$createdAt"),
           Query.equal("status", true),
         ];
 
         const [
-          invRes,
-          unitsRes,
+          inventoriesRes,
           productsRes,
+          unitsRes,
           categoriesRes,
           materialsRes,
           sizesRes,
@@ -141,143 +221,137 @@ export default function Inventories() {
           containersRes,
         ] = await Promise.all([
           databases.listDocuments(DATABASE_ID, INVENTORIES_COLLECTION_ID, [
-            Query.equal("status", true),
-            Query.orderAsc("productDescriptions"),
-          ]),
-          databases.listDocuments(DATABASE_ID, UNITS_COLLECTION_ID, [
             Query.orderDesc("$createdAt"),
+            Query.equal("status", true),
           ]),
           databases.listDocuments(
             DATABASE_ID,
             PRODUCT_DESCRIPTIONS_COLLECTION_ID,
             [Query.orderDesc("$createdAt"), Query.equal("status", true)],
           ),
+          databases.listDocuments(DATABASE_ID, UNITS_COLLECTION_ID, [
+            Query.orderDesc("$createdAt"),
+            Query.equal("status", true),
+          ]),
           databases.listDocuments(
             DATABASE_ID,
             CATEGORY_COLLECTION_ID,
-            lookupQueries,
+            commonQueries,
           ),
           databases.listDocuments(
             DATABASE_ID,
             MATERIAL_COLLECTION_ID,
-            lookupQueries,
+            commonQueries,
           ),
           databases.listDocuments(
             DATABASE_ID,
             SIZE_COLLECTION_ID,
-            lookupQueries,
+            commonQueries,
           ),
           databases.listDocuments(
             DATABASE_ID,
             CAPACITY_VOLUME_COLLECTION_ID,
-            lookupQueries,
+            commonQueries,
           ),
           databases.listDocuments(
             DATABASE_ID,
             STERILITY_COLLECTION_ID,
-            lookupQueries,
+            commonQueries,
           ),
           databases.listDocuments(
             DATABASE_ID,
             USABILITY_COLLECTION_ID,
-            lookupQueries,
+            commonQueries,
           ),
           databases.listDocuments(
             DATABASE_ID,
             STRAP_COLLECTION_ID,
-            lookupQueries,
+            commonQueries,
           ),
           databases.listDocuments(
             DATABASE_ID,
             CONTENT_COLLECTION_ID,
-            lookupQueries,
+            commonQueries,
           ),
           databases.listDocuments(
             DATABASE_ID,
             DOSAGE_FORM_COLLECTION_ID,
-            lookupQueries,
+            commonQueries,
           ),
           databases.listDocuments(
             DATABASE_ID,
             CONTAINER_COLLECTION_ID,
-            lookupQueries,
+            commonQueries,
           ),
         ]);
 
-        const invDocs = invRes.documents as any[];
-        setInventories(invDocs as Inventory[]);
-
-        const unitDocs = unitsRes.documents as any[];
-        setUnits(unitDocs as UnitOption[]);
-
-        setProducts(productsRes.documents as any as ProductDescription[]);
-        setCategories(categoriesRes.documents as any as Category[]);
-        setMaterialsData(materialsRes.documents as any as UnitOption[]);
-        setSizesData(sizesRes.documents as any as UnitOption[]);
+        setInventories(
+          inventoriesRes.documents as unknown as InventoryRecord[],
+        );
+        setProducts(productsRes.documents as unknown as ProductDescription[]);
+        setUnits(unitsRes.documents as unknown as UnitOption[]);
+        setCategories(categoriesRes.documents as unknown as Category[]);
+        setMaterialsData(materialsRes.documents as unknown as UnitOption[]);
+        setSizesData(sizesRes.documents as unknown as UnitOption[]);
         setCapacityVolumesData(
-          capacityVolumesRes.documents as any as UnitOption[],
+          capacityVolumesRes.documents as unknown as UnitOption[],
         );
-        setSterilitiesData(sterilitiesRes.documents as any as UnitOption[]);
-        setUsabilitiesData(usabilitiesRes.documents as any as UnitOption[]);
-        setStrapsData(strapsRes.documents as any as UnitOption[]);
-        setContentsData(contentsRes.documents as any as UnitOption[]);
-        setDosageForms(dosageFormsRes.documents as any as UnitOption[]);
-        setContainers(containersRes.documents as any as UnitOption[]);
+        setSterilitiesData(
+          sterilitiesRes.documents as unknown as UnitOption[],
+        );
+        setUsabilitiesData(
+          usabilitiesRes.documents as unknown as UnitOption[],
+        );
+        setStrapsData(strapsRes.documents as unknown as UnitOption[]);
+        setContentsData(contentsRes.documents as unknown as UnitOption[]);
+        setDosageForms(dosageFormsRes.documents as unknown as UnitOption[]);
+        setContainers(containersRes.documents as unknown as UnitOption[]);
 
-        const detailMap: Record<string, InventoryDetail[]> = {};
-        const priceMap: SellingPriceMap = {};
+        if (allDetails.length > 0) {
+          const priceResults = await Promise.all(
+            allDetails.map(async (detail) => {
+              try {
+                const pricesRes = await databases.listDocuments(
+                  DATABASE_ID,
+                  SELLING_PRICES_COLLECTION_ID,
+                  [
+                    Query.equal("inventoryDetails", detail.$id),
+                    Query.equal("status", true),
+                    Query.orderDesc("$createdAt"),
+                    Query.limit(1),
+                  ],
+                );
 
-        await Promise.all(
-          invDocs.map(async (inv) => {
-            const detailsRes = await databases.listDocuments(
-              DATABASE_ID,
-              INVENTORY_DETAILS_COLLECTION_ID,
-              [
-                Query.equal("inventories", inv.$id),
-                Query.orderAsc("units"),
-                Query.orderDesc("$createdAt"),
-              ],
-            );
-
-            const details = (detailsRes.documents as any[]) as InventoryDetail[];
-            detailMap[inv.$id] = details;
-
-            await Promise.all(
-              details.map(async (detail) => {
-                try {
-                  const pricesRes = await databases.listDocuments(
-                    DATABASE_ID,
-                    SELLING_PRICES_COLLECTION_ID,
-                    [
-                      Query.equal("inventoryDetails", detail.$id),
-                      Query.orderDesc("$createdAt"),
-                      Query.limit(1),
-                    ],
-                  );
-                  if (pricesRes.total > 0) {
-                    const priceDoc = pricesRes.documents[0] as any;
-                    priceMap[detail.$id] =
-                      typeof priceDoc.price === "number"
-                        ? (priceDoc.price as number)
-                        : null;
-                  } else {
-                    priceMap[detail.$id] = null;
-                  }
-                } catch {
-                  priceMap[detail.$id] = null;
+                if (pricesRes.total > 0) {
+                  const priceDoc = pricesRes.documents[0] as any;
+                  const rawPrice =
+                    typeof priceDoc.price === "number"
+                      ? priceDoc.price
+                      : Number(priceDoc.price);
+                  const price = Number.isFinite(rawPrice) ? rawPrice : null;
+                  return { id: detail.$id, price };
                 }
-              }),
-            );
-          }),
-        );
+              } catch {
+                // ignore per-detail price errors
+              }
 
-        setDetailsByInventory(detailMap);
-        setPricesByDetail(priceMap);
+              return { id: detail.$id, price: null };
+            }),
+          );
+
+          const priceMap: Record<string, number | null> = {};
+          for (const { id, price } of priceResults) {
+            priceMap[id] = price;
+          }
+          setPrices(priceMap);
+        } else {
+          setPrices({});
+        }
       } catch (err) {
         setError(
           err instanceof Error
             ? err.message
-            : "Failed to load inventories data",
+            : "Failed to load inventory details",
         );
       } finally {
         setLoading(false);
@@ -287,45 +361,421 @@ export default function Inventories() {
     void fetchData();
   }, []);
 
+  const fetchLocationBins = async () => {
+    try {
+      setLocationLoading(true);
+      setLocationError(null);
+
+      const response = await databases.listDocuments(
+        DATABASE_ID,
+        LOCATION_BINS_COLLECTION_ID,
+        [Query.orderDesc("$createdAt"), Query.equal("status", true)],
+      );
+      const rawBins = response.documents as unknown as LocationBin[];
+
+      if (rawBins.length === 0) {
+        setLocationBins(rawBins);
+        return;
+      }
+
+      const shelfIds = Array.from(
+        new Set(
+          rawBins
+            .map((bin) => bin.locationShelves)
+            .filter((id): id is string => Boolean(id)),
+        ),
+      );
+
+      let shelves: LocationShelfLink[] = [];
+      let racks: LocationRackLink[] = [];
+      let aisles: LocationAisleLink[] = [];
+
+      if (shelfIds.length > 0) {
+        const shelvesRes = await databases.listDocuments(
+          DATABASE_ID,
+          LOCATION_SHELVES_COLLECTION_ID,
+          [Query.equal("$id", shelfIds), Query.equal("status", true)],
+        );
+
+        shelves = shelvesRes.documents as unknown as LocationShelfLink[];
+
+        const rackIds = Array.from(
+          new Set(
+            shelves
+              .map((shelf) => shelf.locationRacks)
+              .filter((id): id is string => Boolean(id)),
+          ),
+        );
+
+        if (rackIds.length > 0) {
+          const racksRes = await databases.listDocuments(
+            DATABASE_ID,
+            LOCATION_RACKS_COLLECTION_ID,
+            [Query.equal("$id", rackIds), Query.equal("status", true)],
+          );
+
+          racks = racksRes.documents as unknown as LocationRackLink[];
+
+          const aisleIds = Array.from(
+            new Set(
+              racks
+                .map((rack) => rack.locationAisles)
+                .filter((id): id is string => Boolean(id)),
+            ),
+          );
+
+          if (aisleIds.length > 0) {
+            const aislesRes = await databases.listDocuments(
+              DATABASE_ID,
+              LOCATION_AISLES_COLLECTION_ID,
+              [Query.equal("$id", aisleIds), Query.equal("status", true)],
+            );
+
+            aisles = aislesRes.documents as unknown as LocationAisleLink[];
+          }
+        }
+      }
+
+      const shelfMap = new Map<string, LocationShelfLink>();
+      const rackMap = new Map<string, LocationRackLink>();
+      const aisleMap = new Map<string, LocationAisleLink>();
+
+      for (const shelf of shelves) {
+        shelfMap.set(shelf.$id, shelf);
+      }
+      for (const rack of racks) {
+        rackMap.set(rack.$id, rack);
+      }
+      for (const aisle of aisles) {
+        aisleMap.set(aisle.$id, aisle);
+      }
+
+      const enhancedBins = rawBins.map((bin) => {
+        const shelf = bin.locationShelves
+          ? shelfMap.get(bin.locationShelves)
+          : undefined;
+        const rack =
+          shelf && shelf.locationRacks
+            ? rackMap.get(shelf.locationRacks)
+            : undefined;
+        const aisle =
+          rack && rack.locationAisles
+            ? aisleMap.get(rack.locationAisles)
+            : undefined;
+
+        return {
+          ...bin,
+          shelfDescription: shelf?.description,
+          rackDescription: rack?.description,
+          aisleDescription: aisle?.description,
+        };
+      });
+
+      const sortedBins = [...enhancedBins].sort((a, b) => {
+        const aAisle = (a.aisleDescription ?? "").toLowerCase();
+        const bAisle = (b.aisleDescription ?? "").toLowerCase();
+        if (aAisle !== bAisle) return aAisle.localeCompare(bAisle);
+
+        const aRack = (a.rackDescription ?? "").toLowerCase();
+        const bRack = (b.rackDescription ?? "").toLowerCase();
+        if (aRack !== bRack) return aRack.localeCompare(bRack);
+
+        const aShelf = (a.shelfDescription ?? "").toLowerCase();
+        const bShelf = (b.shelfDescription ?? "").toLowerCase();
+        if (aShelf !== bShelf) return aShelf.localeCompare(bShelf);
+
+        const aBin = (a.description ?? "").toLowerCase();
+        const bBin = (b.description ?? "").toLowerCase();
+        return aBin.localeCompare(bBin);
+      });
+
+      setLocationBins(sortedBins);
+    } catch (err) {
+      setLocationError(
+        err instanceof Error ? err.message : "Failed to load location bins",
+      );
+    } finally {
+      setLocationLoading(false);
+    }
+  };
+
+  const openLocationModal = (detail: InventoryDetail) => {
+    setSelectedDetailForLocation(detail);
+    void fetchLocationBins();
+    locationModal.openModal();
+  };
+
+  const closeLocationModal = () => {
+    locationModal.closeModal();
+    setSelectedDetailForLocation(null);
+    setLocationError(null);
+    setTaggingLocationId(null);
+  };
+
+  const handleTagLocation = async (binId: string) => {
+    if (!selectedDetailForLocation) return;
+
+    try {
+      setTaggingLocationId(binId);
+      setLocationError(null);
+
+      await databases.updateDocument(
+        DATABASE_ID,
+        INVENTORY_DETAILS_COLLECTION_ID,
+        selectedDetailForLocation.$id,
+        {
+          locationBins: binId,
+        },
+      );
+
+      setDetails((prev) =>
+        prev.map((detail) =>
+          detail.$id === selectedDetailForLocation.$id
+            ? { ...detail, locationBins: binId }
+            : detail,
+        ),
+      );
+
+      setLocationSuccessMessage("Location tagged successfully.");
+      closeLocationModal();
+    } catch (err) {
+      setLocationError(
+        err instanceof Error
+          ? err.message
+          : "Failed to tag inventory detail to location",
+      );
+    } finally {
+      setTaggingLocationId(null);
+    }
+  };
+
   const formatDate = (value?: string) => {
     if (!value) return "-";
     const parts = value.split("T");
     return parts[0] || value;
   };
 
-  const getUnitDescription = (unitId?: string) => {
-    if (!unitId) return "-";
-    const unit = units.find((u) => u.$id === unitId);
-    return unit?.description ?? unitId;
-  };
+  const filteredDetails = details.filter((detail) => {
+    const search = searchQuery.trim().toLowerCase();
+    if (!search) return true;
+
+    const inventory = inventories.find((inv) => inv.$id === detail.inventories);
+    const product = inventory
+      ? products.find((p) => p.$id === inventory.productDescriptions)
+      : undefined;
+    const unit = units.find((u) => u.$id === detail.units);
+
+    const fields = [
+      product?.name,
+      inventory?.productDescriptions,
+      unit?.description,
+      inventory?.lot_no,
+      inventory?.batch_no,
+    ];
+
+    return fields.some(
+      (value) =>
+        typeof value === "string" && value.toLowerCase().includes(search),
+    );
+  });
+
+  const sortedDetails = [...filteredDetails].sort((a, b) => {
+    const inventoryA = inventories.find((inv) => inv.$id === a.inventories);
+    const inventoryB = inventories.find((inv) => inv.$id === b.inventories);
+
+    const productA = inventoryA
+      ? products.find((p) => p.$id === inventoryA.productDescriptions)
+      : undefined;
+    const productB = inventoryB
+      ? products.find((p) => p.$id === inventoryB.productDescriptions)
+      : undefined;
+
+    const nameA = (productA?.name || inventoryA?.productDescriptions || "").toLowerCase();
+    const nameB = (productB?.name || inventoryB?.productDescriptions || "").toLowerCase();
+
+    if (!nameA && !nameB) return 0;
+    if (!nameA) return 1;
+    if (!nameB) return -1;
+
+    const compareName = nameA.localeCompare(nameB);
+    if (compareName !== 0) {
+      return compareName;
+    }
+
+    const unitA = units.find((u) => u.$id === a.units);
+    const unitB = units.find((u) => u.$id === b.units);
+
+    const unitNameA = (unitA?.description || "").toLowerCase();
+    const unitNameB = (unitB?.description || "").toLowerCase();
+
+    if (!unitNameA && !unitNameB) return 0;
+    if (!unitNameA) return 1;
+    if (!unitNameB) return -1;
+
+    return unitNameA.localeCompare(unitNameB);
+  });
+
+  const groupsMap = new Map<
+    string,
+    { key: string; totalBalance: number; rows: InventoryDetail[] }
+  >();
+
+  for (const detail of sortedDetails) {
+    const inventory = inventories.find((inv) => inv.$id === detail.inventories);
+    const productId = inventory?.productDescriptions || "";
+    const unitId = detail.units || "";
+    const key = `${productId}__${unitId}`;
+
+    const running =
+      typeof detail.running_balance === "number" ? detail.running_balance : 0;
+
+    const existing = groupsMap.get(key);
+    if (existing) {
+      existing.totalBalance += running;
+      existing.rows.push(detail);
+    } else {
+      groupsMap.set(key, {
+        key,
+        totalBalance: running,
+        rows: [detail],
+      });
+    }
+  }
+
+  const groupedDetails = Array.from(groupsMap.values());
+
+  const groupedRows = groupedDetails.flatMap((group) => {
+    const rowSpan = group.rows.length;
+
+    return group.rows.map((detail, index) => {
+      const inventory = inventories.find((inv) => inv.$id === detail.inventories);
+      const product = inventory
+        ? products.find((p) => p.$id === inventory.productDescriptions)
+        : undefined;
+      const unit = units.find((u) => u.$id === detail.units);
+      const runningBalance =
+        typeof detail.running_balance === "number"
+          ? detail.running_balance
+          : "-";
+      const priceValue = prices[detail.$id];
+      const lot = inventory?.lot_no || "-";
+      const batch = inventory?.batch_no || "";
+      const lotBatch = batch && batch !== "-" ? `${lot} / ${batch}` : lot;
+      const isFirstRow = index === 0;
+
+      return (
+        <TableRow key={detail.$id}>
+          {isFirstRow && (
+            <TableCell
+              rowSpan={rowSpan}
+              className="px-5 py-4 text-start text-gray-600 text-theme-sm dark:text-gray-300"
+            >
+              {product ? (
+                <ProductDescriptionDetails
+                  record={product as any}
+                  categories={categories}
+                  materials={materialsData}
+                  sizes={sizesData}
+                  capacityVolumes={capacityVolumesData}
+                  sterilities={sterilitiesData}
+                  usabilities={usabilitiesData}
+                  straps={strapsData}
+                  contents={contentsData}
+                  dosageForms={dosageForms}
+                  containers={containers}
+                  className="text-xs text-gray-700 dark:text-gray-200"
+                />
+              ) : (
+                inventory?.productDescriptions || "-"
+              )}
+            </TableCell>
+          )}
+          <TableCell className="px-5 py-4 text-start text-gray-600 text-theme-sm dark:text-gray-300">
+            {formatDate(inventory?.date_expiry)}
+          </TableCell>
+          <TableCell className="px-5 py-4 text-start text-gray-600 text-theme-sm dark:text-gray-300">
+            {lotBatch}
+          </TableCell>
+          {isFirstRow && (
+            <TableCell
+              rowSpan={rowSpan}
+              className="px-5 py-4 text-start text-gray-600 text-theme-sm dark:text-gray-300"
+            >
+              {unit?.description ?? "-"}
+            </TableCell>
+          )}
+
+          <TableCell className="px-5 py-4 text-start text-gray-600 text-theme-sm dark:text-gray-300">
+            {runningBalance}
+          </TableCell>
+          {isFirstRow && (
+            <TableCell
+              rowSpan={rowSpan}
+              className="px-5 py-4 text-start text-gray-600 text-theme-sm dark:text-gray-300"
+            >
+              {group.totalBalance}
+            </TableCell>
+          )}
+          <TableCell className="px-5 py-4 text-start text-gray-600 text-theme-sm dark:text-gray-300">
+            {formatPeso(priceValue)}
+          </TableCell>
+          <TableCell className="px-5 py-4 text-start text-gray-600 text-theme-sm dark:text-gray-300">
+            {detail.locationBins ?? "-"}
+          </TableCell>
+          <TableCell className="px-5 py-4 text-start">
+            <Button
+              size="sm"
+              variant="primary"
+              className="bg-green-600 hover:bg-green-700"
+              onClick={() => openLocationModal(detail)}
+            >
+              Add Location
+            </Button>
+          </TableCell>
+
+        </TableRow>
+      );
+    });
+  });
 
   return (
     <>
       <PageMeta
         title="Inventories"
-        description="Manage pharmacy inventory records and movements"
+        description="View current inventory balances and selling prices"
       />
       <PageBreadcrumb pageTitle="Inventories" />
 
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          Inventories
-        </h1>
-        <p className="text-sm text-gray-600 dark:text-gray-300">
-          Listing of all inventory records, their details, and current selling
-          prices.
-        </p>
+        <div className="flex items-center justify-between">
+          <div className="max-w-xs w-full ml-auto">
+            <InputField
+              type="text"
+              placeholder="Search inventories..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {locationSuccessMessage && (
+          <Alert
+            variant="success"
+            title="Location updated"
+            message={locationSuccessMessage}
+            closable
+            onClose={() => setLocationSuccessMessage(null)}
+          />
+        )}
 
         {error && <p className="text-sm text-error-500">{error}</p>}
 
         {loading ? (
-          <p className="text-sm text-gray-600 dark:text-gray-300">
-            Loading inventories...
-          </p>
-        ) : inventories.length === 0 ? (
-          <p className="text-sm text-gray-600 dark:text-gray-300">
-            No inventories found.
-          </p>
+          <div className="py-8 text-center">
+            <p className="text-gray-600 dark:text-gray-300">
+              Loading inventory details...
+            </p>
+          </div>
         ) : (
           <div className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-white/[0.03]">
             <div className="max-w-full overflow-x-auto">
@@ -342,20 +792,21 @@ export default function Inventories() {
                       isHeader
                       className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
                     >
-                      Expiry / Lot / Batch
+                      Expiry Date
                     </TableCell>
                     <TableCell
                       isHeader
                       className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
                     >
-                      Detail Unit
+                      Lot / Batch
                     </TableCell>
                     <TableCell
                       isHeader
                       className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
                     >
-                      Current Price
+                      Unit
                     </TableCell>
+
                     <TableCell
                       isHeader
                       className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
@@ -366,125 +817,146 @@ export default function Inventories() {
                       isHeader
                       className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
                     >
-                      Med Rep
+                      Total Balance
+                    </TableCell>
+                    <TableCell
+                      isHeader
+                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                    >
+                      Current Selling Price
+                    </TableCell>
+                    <TableCell
+                      isHeader
+                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                    >
+                      Location
+                    </TableCell>
+                    <TableCell
+                      isHeader
+                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                    >
+                      Action
                     </TableCell>
                   </TableRow>
                 </TableHeader>
                 <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-                  {inventories.map((inv) => {
-                    const details = detailsByInventory[inv.$id] || [];
-                    const product = products.find(
-                      (p) => p.$id === (inv as any).productDescriptions,
-                    );
-                    if (!details.length) {
-                      return (
-                        <TableRow key={inv.$id}>
-                          <TableCell className="px-5 py-3 text-xs text-gray-700 dark:text-gray-200">
-                            {product ? (
-                              <ProductDescriptionDetails
-                                record={product as any}
-                                categories={categories}
-                                materials={materialsData}
-                                sizes={sizesData}
-                                capacityVolumes={capacityVolumesData}
-                                sterilities={sterilitiesData}
-                                usabilities={usabilitiesData}
-                                straps={strapsData}
-                                contents={contentsData}
-                                dosageForms={dosageForms}
-                                containers={containers}
-                                className="text-xs text-gray-700 dark:text-gray-200"
-                              />
-                            ) : (
-                              "-"
-                            )}
-                          </TableCell>
-                          <TableCell className="px-5 py-3 text-xs text-gray-700 dark:text-gray-200">
-                            {formatDate((inv as any).date_expiry)} | {(inv as any).lot_no || "-"} /
-                            {(inv as any).batch_no || "-"}
-                          </TableCell>
-                          <TableCell className="px-5 py-3 text-xs text-gray-700 dark:text-gray-200">
-                            -
-                          </TableCell>
-                          <TableCell className="px-5 py-3 text-xs text-gray-700 dark:text-gray-200">
-                            -
-                          </TableCell>
-                          <TableCell className="px-5 py-3 text-xs text-gray-700 dark:text-gray-200">
-                            -
-                          </TableCell>
-                          <TableCell className="px-5 py-3 text-xs text-gray-700 dark:text-gray-200">
-                            -
-                          </TableCell>
-                        </TableRow>
-                      );
-                    }
-
-                    return details.map((detail, index) => {
-                      const price = pricesByDetail[detail.$id] ?? null;
-                      const medRepDisplay =
-                        typeof (detail as any).med_rep === "string"
-                          ? ((detail as any).med_rep as string)
-                          : "-";
-                      return (
-                        <TableRow key={`${inv.$id}-${detail.$id}`}>
-                          <TableCell className="px-5 py-3 text-xs text-gray-700 dark:text-gray-200">
-                            {index === 0 ? (
-                              product ? (
-                                <ProductDescriptionDetails
-                                  record={product as any}
-                                  categories={categories}
-                                  materials={materialsData}
-                                  sizes={sizesData}
-                                  capacityVolumes={capacityVolumesData}
-                                  sterilities={sterilitiesData}
-                                  usabilities={usabilitiesData}
-                                  straps={strapsData}
-                                  contents={contentsData}
-                                  dosageForms={dosageForms}
-                                  containers={containers}
-                                  className="text-xs text-gray-700 dark:text-gray-200"
-                                />
-                              ) : (
-                                "-"
-                              )
-                            ) : (
-                              ""
-                            )}
-                          </TableCell>
-                          <TableCell className="px-5 py-3 text-xs text-gray-700 dark:text-gray-200">
-                            {index === 0 ? (
-                              <>
-                                {formatDate((inv as any).date_expiry)} | {(inv as any).lot_no || "-"} /
-                                {(inv as any).batch_no || "-"}
-                              </>
-                            ) : (
-                              ""
-                            )}
-                          </TableCell>
-                          <TableCell className="px-5 py-3 text-xs text-gray-700 dark:text-gray-200">
-                            {getUnitDescription(detail.units)}
-                          </TableCell>
-                          <TableCell className="px-5 py-3 text-xs text-gray-700 dark:text-gray-200">
-                            {price != null ? formatPeso(price) : "-"}
-                          </TableCell>
-                          <TableCell className="px-5 py-3 text-xs text-gray-700 dark:text-gray-200">
-                            {typeof detail.running_balance === "number"
-                              ? detail.running_balance
-                              : "-"}
-                          </TableCell>
-                          <TableCell className="px-5 py-3 text-xs text-gray-700 dark:text-gray-200">
-                            {medRepDisplay}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    });
-                  })}
+                  {groupedRows.length > 0 ? (
+                    groupedRows
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        colSpan={9}
+                        className="px-5 py-8 text-center text-gray-600 dark:text-gray-300"
+                      >
+                        No inventory details found
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </div>
           </div>
         )}
       </div>
+
+      <Modal
+        isOpen={locationModal.isOpen}
+        onClose={closeLocationModal}
+        className="max-w-3xl w-full p-6"
+      >
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            Select Location Bin
+          </h2>
+          {locationError && (
+            <p className="text-sm text-error-500">
+              {locationError}
+            </p>
+          )}
+          {locationLoading ? (
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              Loading location bins...
+            </p>
+          ) : (
+            <div className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+              <Table>
+                <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
+                  <TableRow>
+                    <TableCell
+                      isHeader
+                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                    >
+                      Description
+                    </TableCell>
+                    <TableCell
+                      isHeader
+                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                    >
+                      Actions
+                    </TableCell>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
+                  {locationBins.length > 0 ? (
+                    locationBins.map((bin) => (
+                      <TableRow key={bin.$id}>
+                        <TableCell className="px-5 py-4 text-start text-gray-600 text-theme-sm dark:text-gray-300">
+                          <div>{bin.description}</div>
+                          {(bin.shelfDescription ||
+                            bin.rackDescription ||
+                            bin.aisleDescription) && (
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              {[
+                                bin.shelfDescription,
+                                bin.rackDescription,
+                                bin.aisleDescription,
+                              ]
+                                .filter(
+                                  (value): value is string => Boolean(value),
+                                )
+                                .join(" -> ")}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="px-5 py-4 text-start">
+                          <Button
+                            size="sm"
+                            variant="primary"
+                            className="bg-green-600 hover:bg-green-700"
+                            onClick={() => handleTagLocation(bin.$id)}
+                            disabled={taggingLocationId === bin.$id}
+                          >
+                            Tag to this location
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        colSpan={2}
+                        className="px-5 py-8 text-center text-gray-600 dark:text-gray-300"
+                      >
+                        No location bins found
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={closeLocationModal}
+            >
+              Close
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </>
   );
 }
+
