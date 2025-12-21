@@ -27,6 +27,7 @@ import Home from "./pages/Dashboard/Home";
 import Products from "./pages/Products/Products";
 import Delivery from "./pages/Deliveries/Deliveries";
 import Units from "./pages/Deliveries/Units";
+import Brands from "./pages/Deliveries/Brands";
 import Inventories from "./pages/Inventory/Inventories";
 import InboundStocks from "./pages/Inventory/InboundStocks";
 import LocationManagement from "./pages/Inventory/LocationAisles";
@@ -181,6 +182,7 @@ function AppContent() {
           />
           <Route path="/deliveries" element={<Delivery />} />
           <Route path="/deliveries/units" element={<Units />} />
+          <Route path="/deliveries/brands" element={<Brands />} />
           <Route path="/products/categories" element={<Categories />} />
           <Route
             path="/products/medical_supplies_technical_descriptions/materials"

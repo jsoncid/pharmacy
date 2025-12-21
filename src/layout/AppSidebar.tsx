@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
+import { FiShoppingCart } from "react-icons/fi";
 
 // Assume these icons are imported from an icon library
 import {
@@ -47,6 +48,12 @@ const AppSidebar: React.FC = () => {
       name: "User Profile",
       path: "/profile",
     }] : []),
+    {
+      icon: <FiShoppingCart />,
+      name: "Point of Sale",
+      path: "/profile",
+    },
+
      {
       icon: <BoxIcon />,
       name: "Inventories",
@@ -61,6 +68,7 @@ const AppSidebar: React.FC = () => {
       name: "Deliveries",
       subItems: [
         { name: "Units", path: "/deliveries/units" },
+        { name: "Brands", path: "/deliveries/brands" },
       ],
     },
 

@@ -6,7 +6,8 @@ import Button from "../ui/button/Button";
 type BaseSearchableSelectProps = ComponentProps<typeof SearchableSelect>;
 
 interface SearchableSelectWithAddProps extends BaseSearchableSelectProps {
-  onAdd: () => void;
+  onAdd: (collectionId: string) => void;
+  collectionId: string;
   addButtonLabel?: string;
   addButtonDisabled?: boolean;
   addButtonClassName?: string;
@@ -14,6 +15,7 @@ interface SearchableSelectWithAddProps extends BaseSearchableSelectProps {
 
 const SearchableSelectWithAdd: React.FC<SearchableSelectWithAddProps> = ({
   onAdd,
+  collectionId,
   addButtonLabel = "+",
   addButtonDisabled = false,
   addButtonClassName = "bg-green-600 hover:bg-green-700",
@@ -29,7 +31,7 @@ const SearchableSelectWithAdd: React.FC<SearchableSelectWithAddProps> = ({
         size="sm"
         variant="primary"
         className={addButtonClassName}
-        onClick={onAdd}
+        onClick={() => onAdd(collectionId)}
         disabled={addButtonDisabled}
         type="button"
       >
