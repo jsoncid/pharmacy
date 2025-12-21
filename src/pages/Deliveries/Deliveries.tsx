@@ -45,6 +45,13 @@ const CONTAINER_COLLECTION_ID =
   import.meta.env.VITE_APPWRITE_COLLECTION_CONTAINERS;
 const CATEGORY_COLLECTION_ID =
   import.meta.env.VITE_APPWRITE_COLLECTION_CATEGORIES;
+const BRANDS_COLLECTION_ID = import.meta.env.VITE_APPWRITE_COLLECTION_BRANDS;
+
+interface Brand {
+  $id: string;
+  description: string;
+  status: boolean;
+}
 
 interface Delivery {
   $id: string;
@@ -86,7 +93,9 @@ interface Category {
 }
 
 interface DeliveryItemDraft {
+  $id?: string;
   productId: string;
+  brands?: string;
   date_expiry?: string;
   lot_no?: string;
   batch_no?: string;
@@ -128,6 +137,10 @@ export default function Deliveries() {
   const [unitsLoading, setUnitsLoading] = useState(false);
   const [unitsError, setUnitsError] = useState<string | null>(null);
 
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [brandsLoading, setBrandsLoading] = useState(false);
+  const [brandsError, setBrandsError] = useState<string | null>(null);
+
   const [materialsData, setMaterialsData] = useState<UnitOption[]>([]);
   const [sizesData, setSizesData] = useState<UnitOption[]>([]);
   const [capacityVolumesData, setCapacityVolumesData] = useState<UnitOption[]>([]);
@@ -142,6 +155,7 @@ export default function Deliveries() {
 
   const [items, setItems] = useState<DeliveryItemDraft[]>([]);
   const [itemProductId, setItemProductId] = useState("");
+  const [itemBrands, setItemBrands] = useState("");
   const [itemDateExpiry, setItemDateExpiry] = useState("");
   const [itemLotNo, setItemLotNo] = useState("");
   const [itemBatchNo, setItemBatchNo] = useState("");
@@ -161,6 +175,7 @@ export default function Deliveries() {
     void fetchProducts();
     void fetchCategories();
     void fetchUnits();
+    void fetchBrands();
     void fetchProductLookups();
   }, []);
 
@@ -261,6 +276,23 @@ export default function Deliveries() {
     }
   };
 
+  const fetchBrands = async () => {
+    try {
+      setBrandsLoading(true);
+      setBrandsError(null);
+      const res = await databases.listDocuments(
+        DATABASE_ID,
+        BRANDS_COLLECTION_ID,
+        [Query.orderDesc("$createdAt"), Query.equal("status", true)],
+      );
+      setBrands(res.documents as unknown as Brand[]);
+    } catch (err) {
+      setBrandsError(err instanceof Error ? err.message : "Failed to fetch brands");
+    } finally {
+      setBrandsLoading(false);
+    }
+  };
+
   const fetchProductLookups = async () => {
     try {
       const queries = [Query.orderDesc("$createdAt"), Query.equal("status", true)];
@@ -312,6 +344,7 @@ export default function Deliveries() {
     setDeliveredDate("");
     setItems([]);
     setItemProductId("");
+    setItemBrands("");
     setItemDateExpiry("");
     setItemLotNo("");
     setItemBatchNo("");
@@ -374,10 +407,7 @@ export default function Deliveries() {
     includeInactive = false,
   ) => {
     try {
-      const queries = [Query.equal("deliveries", deliveryId)];
-      if (!includeInactive) {
-        queries.push(Query.equal("status", true));
-      }
+      const queries = [Query.equal("deliveries", deliveryId),Query.equal("status", true)];
 
       const res = await databases.listDocuments(
         DATABASE_ID,
@@ -385,7 +415,9 @@ export default function Deliveries() {
         queries,
       );
       const mapped: DeliveryItemDraft[] = res.documents.map((doc: any) => ({
+        $id: doc.$id,
         productId: (doc as any).productDescriptions as string,
+        brands: (doc as any).brands ?? undefined,
         date_expiry: (doc as any).date_expiry ?? undefined,
         lot_no: (doc as any).lot_no ?? undefined,
         batch_no: (doc as any).batch_no ?? undefined,
@@ -451,6 +483,7 @@ export default function Deliveries() {
     setItems((prev) => [
       {
         productId: itemProductId,
+        brands: itemBrands || undefined,
         date_expiry: useItemDateExpiry ? itemDateExpiry || undefined : undefined,
         lot_no: useItemLotNo ? itemLotNo || undefined : undefined,
         batch_no: useItemBatchNo ? itemBatchNo || undefined : undefined,
@@ -466,6 +499,7 @@ export default function Deliveries() {
       ...prev,
     ]);
     setItemProductId("");
+    setItemBrands("");
     setItemDateExpiry("");
     setItemLotNo("");
     setItemBatchNo("");
@@ -543,21 +577,36 @@ export default function Deliveries() {
       DELIVERY_ITEMS_COLLECTION_ID,
       [Query.equal("deliveries", deliveryId), Query.equal("status", true)],
     );
+
+    const currentIds = new Set(items.filter(item => item.$id).map(item => item.$id));
+
+    // Update existing items
     await Promise.all(
-      existing.documents.map((doc: any) =>
+      items.filter(item => item.$id).map((item) =>
         databases.updateDocument({
           databaseId: DATABASE_ID,
           collectionId: DELIVERY_ITEMS_COLLECTION_ID,
-          documentId: doc.$id,
+          documentId: item.$id!,
           data: {
-            status: false,
+            productDescriptions: item.productId,
+            brands: item.brands,
+            date_expiry: item.date_expiry,
+            lot_no: item.lot_no,
+            batch_no: item.batch_no,
+            stocking_unit: item.stocking_unit,
+            qty: item.qty,
+            qty_extra: item.qty_extra,
+            price_delivery: item.price_delivery,
+            total_item_amount: item.total_item_amount,
           },
           transactionId,
         }),
       ),
     );
+
+    // Create new items
     await Promise.all(
-      items.map((item) =>
+      items.filter(item => !item.$id).map((item) =>
         databases.createDocument({
           databaseId: DATABASE_ID,
           collectionId: DELIVERY_ITEMS_COLLECTION_ID,
@@ -565,6 +614,7 @@ export default function Deliveries() {
           data: {
             deliveries: deliveryId,
             productDescriptions: item.productId,
+            brands: item.brands,
             date_expiry: item.date_expiry,
             lot_no: item.lot_no,
             batch_no: item.batch_no,
@@ -578,6 +628,23 @@ export default function Deliveries() {
           transactionId,
         }),
       ),
+    );
+
+    // Deactivate removed items
+    await Promise.all(
+      existing.documents
+        .filter((doc: any) => !currentIds.has(doc.$id))
+        .map((doc: any) =>
+          databases.updateDocument({
+            databaseId: DATABASE_ID,
+            collectionId: DELIVERY_ITEMS_COLLECTION_ID,
+            documentId: doc.$id,
+            data: {
+              status: false,
+            },
+            transactionId,
+          }),
+        ),
     );
   };
 
@@ -735,7 +802,7 @@ export default function Deliveries() {
   return (
     <>
       <PageMeta title="Deliveries" description="Manage deliveries and their products" />
-      <PageBreadcrumb pageTitle="Deliveries" />
+      {/* <PageBreadcrumb pageTitle="Deliveries" /> */}
 
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -919,6 +986,9 @@ export default function Deliveries() {
             units={units}
             unitsLoading={unitsLoading}
             unitsError={unitsError}
+            brands={brands}
+            brandsLoading={brandsLoading}
+            brandsError={brandsError}
             materialsData={materialsData}
             sizesData={sizesData}
             capacityVolumesData={capacityVolumesData}
@@ -932,6 +1002,8 @@ export default function Deliveries() {
             items={items}
             itemProductId={itemProductId}
             setItemProductId={setItemProductId}
+            itemBrands={itemBrands}
+            setItemBrands={setItemBrands}
             itemDateExpiry={itemDateExpiry}
             setItemDateExpiry={setItemDateExpiry}
             useItemDateExpiry={useItemDateExpiry}
@@ -992,6 +1064,9 @@ export default function Deliveries() {
             units={units}
             unitsLoading={unitsLoading}
             unitsError={unitsError}
+            brands={brands}
+            brandsLoading={brandsLoading}
+            brandsError={brandsError}
             materialsData={materialsData}
             sizesData={sizesData}
             capacityVolumesData={capacityVolumesData}
@@ -1005,6 +1080,8 @@ export default function Deliveries() {
             items={items}
             itemProductId={itemProductId}
             setItemProductId={setItemProductId}
+            itemBrands={itemBrands}
+            setItemBrands={setItemBrands}
             itemDateExpiry={itemDateExpiry}
             setItemDateExpiry={setItemDateExpiry}
             useItemDateExpiry={useItemDateExpiry}
@@ -1045,7 +1122,7 @@ export default function Deliveries() {
       <Modal
         isOpen={viewModal.isOpen}
         onClose={closeAllModals}
-        className="max-w-5xl w-full p-6"
+        className="max-w-7xl w-full p-6"
       >
         <div className="space-y-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -1112,6 +1189,12 @@ export default function Deliveries() {
                           isHeader
                           className="px-4 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
                         >
+                          Brand
+                        </TableCell>
+                        <TableCell
+                          isHeader
+                          className="px-4 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                        >
                           Unit
                         </TableCell>
                         <TableCell
@@ -1170,6 +1253,7 @@ export default function Deliveries() {
                       {items.length > 0 ? (
                         items.map((item, index) => {
                           const product = products.find((p) => p.$id === item.productId);
+                          const brand = brands.find((b) => b.$id === item.brands);
                           const unit = units.find((u) => u.$id === item.stocking_unit);
                           return (
                             <TableRow key={`${item.productId}-${index}`}>
@@ -1195,6 +1279,9 @@ export default function Deliveries() {
                                 ) : (
                                   "Unknown product"
                                 )}
+                              </TableCell>
+                              <TableCell className="px-4 py-3 text-start text-gray-600 text-theme-sm dark:text-gray-300">
+                                {brand?.description ?? "-"}
                               </TableCell>
                               <TableCell className="px-4 py-3 text-start text-gray-600 text-theme-sm dark:text-gray-300">
                                 {unit?.description ?? "-"}
@@ -1233,7 +1320,7 @@ export default function Deliveries() {
                       ) : (
                         <TableRow>
                           <TableCell
-                            colSpan={11}
+                            colSpan={12}
                             className="px-4 py-6 text-center text-gray-600 text-theme-sm dark:text-gray-300"
                           >
                             No products found for this delivery
@@ -1307,6 +1394,9 @@ interface DeliveryFormProps {
   units: UnitOption[];
   unitsLoading: boolean;
   unitsError: string | null;
+  brands: Brand[];
+  brandsLoading: boolean;
+  brandsError: string | null;
   materialsData: UnitOption[];
   sizesData: UnitOption[];
   capacityVolumesData: UnitOption[];
@@ -1320,6 +1410,8 @@ interface DeliveryFormProps {
   items: DeliveryItemDraft[];
   itemProductId: string;
   setItemProductId: (value: string) => void;
+  itemBrands: string;
+  setItemBrands: (value: string) => void;
   itemDateExpiry: string;
   setItemDateExpiry: (value: string) => void;
   useItemDateExpiry: boolean;
@@ -1369,6 +1461,9 @@ const DeliveryForm: React.FC<DeliveryFormProps> = (props) => {
     units,
     unitsLoading,
     unitsError,
+    brands,
+    brandsLoading,
+    brandsError,
     materialsData,
     sizesData,
     capacityVolumesData,
@@ -1382,6 +1477,8 @@ const DeliveryForm: React.FC<DeliveryFormProps> = (props) => {
     items,
     itemProductId,
     setItemProductId,
+    itemBrands,
+    setItemBrands,
     itemDateExpiry,
     setItemDateExpiry,
     useItemDateExpiry,
@@ -1501,7 +1598,7 @@ const DeliveryForm: React.FC<DeliveryFormProps> = (props) => {
         )}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-12 items-end">
           {/* Row 1: Product, Unit, Qty, Qty Extra */}
-          <div className="md:col-span-5">
+          <div className="md:col-span-4">
             <Label>Product</Label>
             <SearchableSelect
               options={products.map((product) => ({
@@ -1564,7 +1661,20 @@ const DeliveryForm: React.FC<DeliveryFormProps> = (props) => {
               disabled={productsLoading}
             />
           </div>
-          <div className="md:col-span-3">
+          <div className="md:col-span-2">
+            <Label>Brand</Label>
+            <SearchableSelect
+              options={brands.map((b) => ({ value: b.$id, label: b.description }))}
+              placeholder={brandsLoading ? "Loading brands..." : "Select brand"}
+              defaultValue={itemBrands}
+              onChange={(value) => setItemBrands(value)}
+              disabled={brandsLoading}
+            />
+            {brandsError && (
+              <p className="mt-1 text-xs text-error-500">{brandsError}</p>
+            )}
+          </div>
+          <div className="md:col-span-2">
             <Label>Unit</Label>
             <SearchableSelect
               options={units.map((u) => ({ value: u.$id, label: u.description }))}
@@ -1769,6 +1879,12 @@ const DeliveryForm: React.FC<DeliveryFormProps> = (props) => {
                   isHeader
                   className="px-4 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
                 >
+                  Brand
+                </TableCell>
+                <TableCell
+                  isHeader
+                  className="px-4 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                >
                   Unit
                 </TableCell>
                 <TableCell
@@ -1827,6 +1943,7 @@ const DeliveryForm: React.FC<DeliveryFormProps> = (props) => {
                   const globalIndex =
                     (itemsPage - 1) * itemsPerPage + index;
                   const product = products.find((p) => p.$id === item.productId);
+                  const brand = brands.find((b) => b.$id === item.brands);
                   const unit = units.find((u) => u.$id === item.stocking_unit);
                   return (
                     <TableRow key={`${item.productId}-${index}`}>
@@ -1852,6 +1969,9 @@ const DeliveryForm: React.FC<DeliveryFormProps> = (props) => {
                         ) : (
                           "Unknown product"
                         )}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-start text-gray-600 text-theme-sm dark:text-gray-300">
+                        {brand?.description ?? "-"}
                       </TableCell>
                       <TableCell className="px-4 py-3 text-start text-gray-600 text-theme-sm dark:text-gray-300">
                         {unit?.description ?? "-"}
@@ -1894,7 +2014,7 @@ const DeliveryForm: React.FC<DeliveryFormProps> = (props) => {
               ) : (
                 <TableRow>
                   <TableCell
-                    colSpan={11}
+                    colSpan={12}
                     className="px-4 py-6 text-center text-gray-600 text-theme-sm dark:text-gray-300"
                   >
                     No products added yet
