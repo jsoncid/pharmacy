@@ -63,11 +63,13 @@ const INVENTORY_DETAILS_COLLECTION_ID =
   import.meta.env.VITE_APPWRITE_COLLECTION_INVENTORY_DETAILS;
 const SELLING_PRICES_COLLECTION_ID =
   import.meta.env.VITE_APPWRITE_COLLECTION_SELLING_PRICES;
+const BRANDS_COLLECTION_ID = import.meta.env.VITE_APPWRITE_COLLECTION_BRANDS;
 
 interface DeliveryItem {
   $id: string;
   deliveries?: string;
   productDescriptions?: string;
+  brands?: string;
   date_expiry?: string;
   lot_no?: string;
   batch_no?: string;
@@ -117,6 +119,12 @@ interface UnitOption {
   status: boolean;
 }
 
+interface Brand {
+  $id: string;
+  description: string;
+  status: boolean;
+}
+
 interface UserOption {
   $id: string;
   name: string;
@@ -145,6 +153,7 @@ export default function Inventories() {
   const [medRepUsers, setMedRepUsers] = useState<UserOption[]>([]);
   const [medRepUsersLoading, setMedRepUsersLoading] = useState(false);
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [brands, setBrands] = useState<Brand[]>([]);
   const approveModal = useModal(false);
   const mergeModal = useModal(false);
   const medRepModal = useModal(false);
@@ -237,6 +246,19 @@ export default function Inventories() {
       }
     };
 
+    const fetchBrands = async () => {
+      try {
+        const res = await databases.listDocuments(
+          DATABASE_ID,
+          BRANDS_COLLECTION_ID,
+          [Query.orderDesc("$createdAt"), Query.equal("status", true)],
+        );
+        setBrands(res.documents as unknown as Brand[]);
+      } catch {
+        // ignore brand load errors
+      }
+    };
+
     const fetchProductLookups = async () => {
       try {
         const queries = [
@@ -313,6 +335,8 @@ export default function Inventories() {
           ExecutionMethod.GET,
           {},
         );
+
+        
         const result = JSON.parse(response.responseBody);
         if (result.success) {
           setMedRepUsers((result.data || []) as UserOption[]);
@@ -332,6 +356,7 @@ export default function Inventories() {
     void fetchProducts();
     void fetchCategories();
     void fetchUnits();
+    void fetchBrands();
     void fetchProductLookups();
     void fetchMedRepUsers();
   }, []);
@@ -362,6 +387,9 @@ export default function Inventories() {
       }
       if (item.batch_no) {
         duplicateQueries.push(Query.equal("batch_no", item.batch_no));
+      }
+      if (item.brands) {
+        duplicateQueries.push(Query.equal("brands", item.brands));
       }
 
       if (duplicateQueries.length > 0) {
@@ -1075,6 +1103,7 @@ export default function Inventories() {
           documentId: ID.unique(),
           data: {
             productDescriptions: selectedItem.productDescriptions ?? null,
+            brands: selectedItem.brands ?? null,
             delivery_items: [deliveryItemsValue],
             date_expiry: selectedItem.date_expiry ?? null,
             lot_no: selectedItem.lot_no ?? null,
@@ -1481,6 +1510,12 @@ export default function Inventories() {
                       isHeader
                       className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
                     >
+                      Brand
+                    </TableCell>
+                    <TableCell
+                      isHeader
+                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                    >
                       Stocking Unit
                     </TableCell>
                     <TableCell
@@ -1564,6 +1599,14 @@ export default function Inventories() {
                         </TableCell>
                         <TableCell className="px-5 py-4 text-start text-gray-600 text-theme-sm dark:text-gray-300">
                           {(() => {
+                            const brand = brands.find(
+                              (b) => b.$id === item.brands,
+                            );
+                            return brand?.description ?? "-";
+                          })()}
+                        </TableCell>
+                        <TableCell className="px-5 py-4 text-start text-gray-600 text-theme-sm dark:text-gray-300">
+                          {(() => {
                             const unit = units.find(
                               (u) => u.$id === item.stocking_unit,
                             );
@@ -1605,7 +1648,7 @@ export default function Inventories() {
                   ) : (
                     <TableRow>
                       <TableCell
-                        colSpan={10}
+                        colSpan={11}
                         className="px-5 py-8 text-center text-gray-600 dark:text-gray-300"
                       >
                         No inbound stock items pending approval

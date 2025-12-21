@@ -51,6 +51,7 @@ const CONTENT_COLLECTION_ID =
 const STRAP_COLLECTION_ID = import.meta.env.VITE_APPWRITE_COLLECTION_STRAPS;
 const DOSAGE_FORM_COLLECTION_ID =
   import.meta.env.VITE_APPWRITE_COLLECTION_DOSAGE_FORMS;
+const BRANDS_COLLECTION_ID = import.meta.env.VITE_APPWRITE_COLLECTION_BRANDS;
 const CONTAINER_COLLECTION_ID =
   import.meta.env.VITE_APPWRITE_COLLECTION_CONTAINERS;
 const LOCATION_BINS_COLLECTION_ID =
@@ -79,6 +80,7 @@ interface InventoryDetail {
 interface InventoryRecord {
   $id: string;
   productDescriptions?: string;
+  brands?: string;
   date_expiry?: string;
   lot_no?: string;
   batch_no?: string;
@@ -159,6 +161,7 @@ export default function InventoriesPage() {
   const [usabilitiesData, setUsabilitiesData] = useState<UnitOption[]>([]);
   const [strapsData, setStrapsData] = useState<UnitOption[]>([]);
   const [contentsData, setContentsData] = useState<UnitOption[]>([]);
+  const [brands, setBrands] = useState<UnitOption[]>([]);
   const [dosageForms, setDosageForms] = useState<UnitOption[]>([]);
   const [containers, setContainers] = useState<UnitOption[]>([]);
   const [prices, setPrices] = useState<Record<string, number | null>>({});
@@ -309,13 +312,9 @@ export default function InventoriesPage() {
       setCreatingDetail(true);
       setCreateDetailError(null);
 
-      let transactionId: string | null = null;
       let typedDetail: InventoryDetail | null = null;
 
       try {
-        const tx = await databases.createTransaction({ ttl: 60 });
-        transactionId = (tx as any).$id as string;
-
         await databases.updateDocument({
           databaseId: DATABASE_ID,
           collectionId: INVENTORY_DETAILS_COLLECTION_ID,
@@ -326,7 +325,6 @@ export default function InventoriesPage() {
               ? { running_balance: updatedRunningBalance }
               : {}),
           },
-          transactionId,
         });
 
         const payload = {
@@ -346,7 +344,6 @@ export default function InventoriesPage() {
           collectionId: INVENTORY_DETAILS_COLLECTION_ID,
           documentId: ID.unique(),
           data: payload,
-          transactionId,
         });
 
         typedDetail = newDetail as unknown as InventoryDetail;
@@ -360,27 +357,9 @@ export default function InventoriesPage() {
             price: parsedSellingPrice,
             status: true,
           },
-          transactionId,
         });
 
-        await databases.updateTransaction({
-          transactionId,
-          commit: true,
-          rollback: false,
-        });
-        transactionId = null;
       } catch (innerErr) {
-        if (transactionId) {
-          try {
-            await databases.updateTransaction({
-              transactionId,
-              commit: false,
-              rollback: true,
-            });
-          } catch {
-            // ignore rollback failures
-          }
-        }
         throw innerErr;
       }
 
@@ -388,20 +367,10 @@ export default function InventoriesPage() {
         throw new Error("Failed to create downsized inventory detail.");
       }
 
-      const originalDetail = selectedDetailForDownsize as InventoryDetail;
-
-      const updatedOriginal: InventoryDetail = {
-        ...originalDetail,
-        is_converted: true,
-        ...(updatedRunningBalance !== null
-          ? { running_balance: updatedRunningBalance }
-          : {}),
-      };
-
       setDetails((prev) => [
         typedDetail,
         ...prev.map((detail) =>
-          detail.$id === updatedOriginal.$id ? updatedOriginal : detail,
+          detail.$id === selectedDetailForDownsize.$id ? { ...selectedDetailForDownsize, is_converted: true, ...(updatedRunningBalance !== null ? { running_balance: updatedRunningBalance } : {}) } : detail,
         ),
       ]);
       setSelectedDetailForDownsize(typedDetail);
@@ -514,6 +483,7 @@ export default function InventoriesPage() {
           contentsRes,
           dosageFormsRes,
           containersRes,
+          brandsRes,
         ] = await Promise.all([
           databases.listDocuments(DATABASE_ID, INVENTORIES_COLLECTION_ID, [
             Query.orderDesc("$createdAt"),
@@ -578,6 +548,11 @@ export default function InventoriesPage() {
             CONTAINER_COLLECTION_ID,
             commonQueries,
           ),
+          databases.listDocuments(
+            DATABASE_ID,
+            BRANDS_COLLECTION_ID,
+            commonQueries,
+          ),
         ]);
 
         setInventories(
@@ -601,6 +576,7 @@ export default function InventoriesPage() {
         setContentsData(contentsRes.documents as unknown as UnitOption[]);
         setDosageForms(dosageFormsRes.documents as unknown as UnitOption[]);
         setContainers(containersRes.documents as unknown as UnitOption[]);
+        setBrands(brandsRes.documents as unknown as UnitOption[]);
 
         if (allDetails.length > 0) {
           const priceResults = await Promise.all(
@@ -908,6 +884,12 @@ export default function InventoriesPage() {
     return unit?.description ?? "-";
   };
 
+  const getBrandDescription = (inventory: InventoryRecord | null) => {
+    if (!inventory?.brands) return "-";
+    const brand = brands.find((item) => item.$id === inventory.brands);
+    return brand?.description ?? "-";
+  };
+
   const getMedRepLabel = (detail: InventoryDetail | null) => {
     const medRep = detail?.med_rep;
     return medRep && medRep.trim() !== "" ? medRep : "-";
@@ -1140,6 +1122,9 @@ export default function InventoriesPage() {
             </TableCell>
           )}
           <TableCell className="px-5 py-4 text-start text-gray-600 text-theme-sm dark:text-gray-300">
+            {getBrandDescription(inventory || null)}
+          </TableCell>
+          <TableCell className="px-5 py-4 text-start text-gray-600 text-theme-sm dark:text-gray-300">
             {formatDate(inventory?.date_expiry)}
           </TableCell>
           <TableCell className="px-5 py-4 text-start text-gray-600 text-theme-sm dark:text-gray-300">
@@ -1285,6 +1270,12 @@ export default function InventoriesPage() {
                       className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
                     >
                       Product
+                    </TableCell>
+                    <TableCell
+                      isHeader
+                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                    >
+                      Brands
                     </TableCell>
                     <TableCell
                       isHeader
@@ -1571,6 +1562,7 @@ export default function InventoriesPage() {
                   <div className="space-y-2">
                     <Label htmlFor="new-detail-unit">Unit</Label>
                     <SearchableSelectWithAdd
+                      collectionId={UNITS_COLLECTION_ID}
                       options={units
                         .filter((unit) => unit.$id !== selectedDetailForDownsize?.units)
                         .map((unit) => ({
@@ -1581,7 +1573,7 @@ export default function InventoriesPage() {
                       value={newDetailUnitId}
                       onChange={(value) => setNewDetailUnitId(value)}
                       onSearchChange={handleUnitSearch}
-                      onAdd={handleOpenCreateUnitModal}
+                      onAdd={(_collectionId) => handleOpenCreateUnitModal()}
                       noOptionsText="No units found"
                     />
                   </div>
