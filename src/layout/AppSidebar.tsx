@@ -51,7 +51,7 @@ const AppSidebar: React.FC = () => {
     {
       icon: <FiShoppingCart />,
       name: "Point of Sale",
-      path: "/profile",
+      path: "/point-of-sale",
     },
 
      {

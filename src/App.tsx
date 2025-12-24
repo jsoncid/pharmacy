@@ -25,6 +25,7 @@ import { ScrollToTop } from "./components/common/ScrollToTop";
 import { ProtectedRoute } from "./components/common/ProtectedRoute";
 import Home from "./pages/Dashboard/Home";
 import Products from "./pages/Products/Products";
+import PointOfSale from "./pages/PointOfSale/PointOfSale";
 import Delivery from "./pages/Deliveries/Deliveries";
 import Units from "./pages/Deliveries/Units";
 import Brands from "./pages/Deliveries/Brands";
@@ -162,6 +163,7 @@ function AppContent() {
         <Route element={<AppLayout />}>
           <Route index path="/" element={<Home />} />
           <Route path="/products" element={<Products />} />
+          <Route path="/point-of-sale" element={<PointOfSale />} />
           <Route path="/inventories" element={<Inventories />} />
           <Route path="/inventories/inbound-stocks" element={<InboundStocks />} />
           <Route
